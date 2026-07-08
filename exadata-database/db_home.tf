@@ -75,7 +75,7 @@ resource "oci_database_db_home" "these" {
             for_each = lookup(db_backup_config.value, "backup_destination_details", [])
 
             content {
-              dbrs_policy_id = lookup(backup_destination_details.value, "dbrs_policy_id", null)
+              dbrs_policy_id = lookup(backup_destination_details.value, "dbrs_policy_id", null) == null ? null : (can(regex("^ocid1\\.", lookup(backup_destination_details.value, "dbrs_policy_id", null))) ? lookup(backup_destination_details.value, "dbrs_policy_id", null) : local.recovery_service_protection_policies[lookup(backup_destination_details.value, "dbrs_policy_id", null)].id)
               id             = lookup(backup_destination_details.value, "id", null)
               is_remote      = lookup(backup_destination_details.value, "is_remote", null)
               remote_region  = lookup(backup_destination_details.value, "remote_region", null)

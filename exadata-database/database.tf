@@ -5,6 +5,11 @@
 # - Uses a DB Home created by this Terraform stack (by key) or an explicitly provided DB Home OCID.
 
 locals {
+  recovery_service_protection_policies = merge(
+    try({ for key, policy in var.recovery_service_dependency : key => policy }, {}),
+    try({ for key, policy in var.recovery_service_dependency.protection_policies : key => policy }, {})
+  )
+
   # Resolve references and defaults for database creation
   databases = {
     for key, db in coalesce(var.databases_configuration, {}) :
@@ -53,7 +58,7 @@ resource "oci_database_database" "these" {
         dynamic "backup_destination_details" {
           for_each = each.value.database.db_backup_config.backup_destination_details != null ? [each.value.database.db_backup_config.backup_destination_details] : []
           content {
-            dbrs_policy_id = backup_destination_details.value.dbrs_policy_id
+            dbrs_policy_id = backup_destination_details.value.dbrs_policy_id == null ? null : (can(regex("^ocid1\\.", backup_destination_details.value.dbrs_policy_id)) ? backup_destination_details.value.dbrs_policy_id : local.recovery_service_protection_policies[backup_destination_details.value.dbrs_policy_id].id)
             id             = backup_destination_details.value.id
             is_remote      = backup_destination_details.value.is_remote
             remote_region  = backup_destination_details.value.remote_region

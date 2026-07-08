@@ -82,6 +82,7 @@ The module accepts the following input variables:
 - enable_output: Whether Terraform should enable module output. Defaults to true.
 - compartments_dependency: A map of objects containing the externally managed compartments this module may depend on.
 - network_dependency: A map of objects containing the externally managed network resources this module may depend on.
+- recovery_service_dependency: A map of externally managed Autonomous Recovery Service protection policies this module may depend on. Pass either the ARS module `protection_policies` output directly, or an object containing a `protection_policies` map.
 - default_compartment_id: Default Compartment ID for all resources.
 - default_defined_tags: Default defined tags for all resources.
 - default_freeform_tags: Default freeform tags for all resources.
@@ -194,6 +195,7 @@ Each Database Configuration object has the following attributes:
 - db_version: A valid Oracle Database version. For a list of supported versions, use the ListDbVersions operation.
 - kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
 - kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation.
+- database.db_backup_config.backup_destination_details.dbrs_policy_id: The Autonomous Recovery Service protection policy OCID, or a key in `recovery_service_dependency`.
 
 These attributes are not updatable after initial resource creation:
 - db_home_id

@@ -1,0 +1,84 @@
+# Copyright (c) 2025 Oracle and/or its affiliates.
+# Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
+
+# 1. Rename this file to <project-name>.auto.tfvars.
+# 2. Provide values for tenancy connectivity variables.
+# 3. Replace placeholders with appropriate OCIDs and settings.
+
+tenancy_ocid         = "<REPLACE-WITH-TENANCY-OCID>"
+user_ocid            = "<REPLACE-WITH-USER-OCID>"
+fingerprint          = "<REPLACE-WITH-FINGERPRINT>"
+private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"
+private_key_password = ""
+region               = "<REPLACE-WITH-REGION>"
+
+compartments_dependency = {
+  DATABASE-CMP = {
+    id = "<REPLACE-WITH-DATABASE-COMPARTMENT-OCID>"
+  }
+}
+
+network_dependency = {
+  vcns = {
+    EXADB-VCN = {
+      id = "<REPLACE-WITH-EXADB-VCN-OCID>"
+    }
+  }
+  subnets = {
+    EXADB-BACKUP-SUBNET = {
+      id = "<REPLACE-WITH-EXADB-BACKUP-SUBNET-OCID>"
+    }
+  }
+  network_security_groups = {
+    EXADB-BACKUP-NSG = {
+      id = "<REPLACE-WITH-EXADB-BACKUP-NSG-OCID>"
+    }
+  }
+}
+
+default_compartment_id = "DATABASE-CMP"
+default_defined_tags   = {}
+default_freeform_tags  = {}
+subscription_dependency = null
+
+autonomous_recovery_service_configuration = {
+  default_compartment_id = "DATABASE-CMP"
+
+  recovery_service_subnets = {
+    EXADB-RSS = {
+      display_name = "exadb-recovery-service-subnet"
+      vcn_id       = "EXADB-VCN"
+      subnet_ids   = ["EXADB-BACKUP-SUBNET"]
+      nsg_ids      = ["EXADB-BACKUP-NSG"]
+    }
+  }
+
+  protection_policies = {
+    EXADB-GOLD = {
+      display_name                    = "exadb-gold-35-days"
+      backup_retention_period_in_days = 35
+    }
+  }
+}
+
+databases_configuration = {
+  CDB1 = {
+    source     = "NONE"
+    db_home_id = "<REPLACE-WITH-EXADB-DB-HOME-OCID>"
+    database = {
+      admin_password      = "<REPLACE-WITH-STRONG-PASSWORD>"
+      db_name             = "CDB1"
+      db_unique_name      = "CDB1_UNQ"
+      db_workload         = "OLTP"
+      character_set       = "AL32UTF8"
+      ncharacter_set      = "AL16UTF16"
+      pdb_name            = "PDB1"
+      sid_prefix          = "cdb1"
+      tde_wallet_password = "<REPLACE-WITH-STRONG-PASSWORD>"
+    }
+  }
+}
+
+database_recovery_service_policy_keys = {
+  CDB1 = "EXADB-GOLD"
+}

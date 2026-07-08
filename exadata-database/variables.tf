@@ -42,6 +42,12 @@ variable "network_dependency" {
   default = null
 }
 
+variable "recovery_service_dependency" {
+  description = "A map of objects containing externally managed Autonomous Recovery Service resources this module may depend on. Use either a direct protection policy map, or an object with a protection_policies map. Each protection policy object must contain at least an 'id' attribute with the protection policy OCID."
+  type        = any
+  default     = null
+}
+
 variable "default_compartment_id" {
   description = "Default Compartment ID for all resources."
   type        = string
