@@ -21,7 +21,7 @@ autonomous_databases_configuration = {
       networking = {
         subnet_id               = "CLIENT-SUBNET"
         enable_private_endpoint = true
-        private_endpoint_ip     = "172.16.0.0/20"
+        private_endpoint_ip     = "172.16.0.25"
         network_security_groups = ["CLIENT-NSG", "BACKUP-NSG"]
       }
       security = {
@@ -36,12 +36,15 @@ autonomous_databases_configuration = {
   }
 }
 
-kms_dependency = {
+vaults_dependency = {
   VAULT-1 = {
-    id = "<REPLACE-WITH-OCID>"
+    id = "<REPLACE-WITH-VAULT-OCID>"
   }
+}
+
+kms_dependency = {
   KEY-1 = {
-    id = "<REPLACE-WITH-OCID>"
+    id = "<REPLACE-WITH-KEY-OCID>"
   }
 }
 
@@ -60,4 +63,3 @@ network_dependency = {
     }
   }
 }
-

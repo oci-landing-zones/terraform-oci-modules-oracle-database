@@ -189,11 +189,11 @@ databases_configuration = {
       ncharacter_set = "AL16UTF16" #The default is AL16UTF16. Allowed values are: AL16UTF16 or UTF8.
 
       # Create initial PDB during CDB creation
-      pdb_name       = "PDB1A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
-      }
-      sid_prefix = "cdb1"
+      pdb_name            = "PDB1A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
+      sid_prefix          = "cdb1"
       tde_wallet_password = "<REPLACE-WITH-STRONG-PASSWORD>"
-   }
+    }
+  }
 }
 
 

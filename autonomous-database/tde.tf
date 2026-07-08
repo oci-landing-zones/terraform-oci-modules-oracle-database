@@ -2,12 +2,12 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
 data "oci_kms_vault" "these" {
-  for_each = { for k, v in var.autonomous_databases_configuration.databases : k => v.security.tde.existing_oci_vault_id if try(v.security.tde.existing_oci_vault_id, null) != null }
-  vault_id = length(regexall("^ocid1.*$", each.value)) > 0 ? each.value : var.kms_dependency[each.value].id
+  for_each = { for k, v in var.autonomous_databases_configuration.databases : k => local.tde_vault_ids[k] if try(v.is_dedicated, true) == false && local.tde_vault_ids[k] != null && (try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == true || try(v.security.tde.deploy_new_oci_encryption_key, false) == true) }
+  vault_id = each.value
 }
 
 data "oci_kms_key" "these" {
-  for_each            = { for k, v in var.autonomous_databases_configuration.databases : k => v.security.tde.existing_oci_encryption_key_id if try(v.security.tde.existing_oci_encryption_key_id, null) != null && try(v.security.tde.deploy_new_oci_encryption_key, false) == false }
+  for_each            = { for k, v in var.autonomous_databases_configuration.databases : k => v.security.tde.existing_oci_encryption_key_id if try(v.is_dedicated, true) == false && try(v.security.tde.existing_oci_encryption_key_id, null) != null && try(v.security.tde.deploy_new_oci_encryption_key, false) == false && try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == true && local.tde_vault_ids[k] != null && (length(regexall("^ocid1.*$", v.security.tde.existing_oci_encryption_key_id)) > 0 || try(contains(keys(var.kms_dependency), v.security.tde.existing_oci_encryption_key_id), false)) }
   key_id              = length(regexall("^ocid1.*$", each.value)) > 0 ? each.value : var.kms_dependency[each.value].id
   management_endpoint = data.oci_kms_vault.these[each.key].management_endpoint
 }
@@ -20,14 +20,14 @@ locals {
       name           = "${v.db_name}-key"
       vault_id       = data.oci_kms_vault.these[k].vault_id
       compartment_id = v.compartment_id
-    } if v.deploy_new_oci_encryption_key }
+    } if v.deploy_new_oci_encryption_key && contains(keys(data.oci_kms_vault.these), k) }
   }
 
   dynamic_groups_configuration = {
     dynamic_groups = { for k, v in local.db_configs : "${k}-DYNAMIC-GROUP" => {
       name          = "${v.db_name}-dynamic-group",
       description   = "Dynamic group for ${v.db_name} accessing Key Management service (aka Vault service).",
-      matching_rule = "ALL {resource.compartment.id = '${v.compartment_id != null ? (length(regexall("^ocid1.*$", v.compartment_id)) > 0 ? v.compartment_id : var.compartments_dependency[v.compartment_id].id) : (length(regexall("^ocid1.*$", var.autonomous_databases_configuration.default_compartment_id)) > 0 ? var.autonomous_databases_configuration.default_compartment_id : var.compartments_dependency[var.autonomous_databases_configuration.default_compartment_id].id)}'}"
+      matching_rule = "ALL {resource.type = 'autonomousdatabase', resource.compartment.id = '${v.compartment_id}'}"
     } if v.deploy_iam_policy_and_dyn_group_for_encryption_key }
   }
 
@@ -43,7 +43,18 @@ locals {
         # ADB-S requires 'use' keys, ADB-D requires 'manage' keys in the Container database level.
         "allow dynamic-group ${v.db_name}-dynamic-group to use keys in compartment id ${try(v.deploy_new_oci_encryption_key, false) == true ? module.master_keys[0].keys["${k}-KEY"].compartment_id : data.oci_kms_key.these[k].compartment_id} where target.key.id = '${try(v.deploy_new_oci_encryption_key, false) == true ? module.master_keys[0].keys["${k}-KEY"].id : data.oci_kms_key.these[k].id}'"
       ]
-    } if v.deploy_iam_policy_and_dyn_group_for_encryption_key }
+    } if v.deploy_iam_policy_and_dyn_group_for_encryption_key && contains(keys(data.oci_kms_vault.these), k) && (try(v.deploy_new_oci_encryption_key, false) == true || contains(keys(data.oci_kms_key.these), k)) }
+  }
+
+  adb_tde_iam_wait_inputs = {
+    for k, v in local.db_configs : k => {
+      db_name                         = v.db_name
+      compartment_id                  = v.compartment_id
+      vault_id                        = v.oci_vault_id
+      encryption_key_id               = try(v.deploy_new_oci_encryption_key, false) == true ? "${k}-KEY" : v.oci_encryption_key_id
+      deploy_new_oci_encryption_key   = v.deploy_new_oci_encryption_key
+      deploy_iam_policy_and_dyn_group = v.deploy_iam_policy_and_dyn_group_for_encryption_key
+    } if v.deploy_iam_policy_and_dyn_group_for_encryption_key && contains(keys(data.oci_kms_vault.these), k) && (try(v.deploy_new_oci_encryption_key, false) == true || contains(keys(data.oci_kms_key.these), k))
   }
 }
 

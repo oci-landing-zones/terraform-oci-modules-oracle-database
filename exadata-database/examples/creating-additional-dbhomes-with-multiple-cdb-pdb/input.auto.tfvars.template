@@ -130,7 +130,6 @@ databases_configuration = {
       #source_database_id = #<<(Required when source=DATAGUARD) The OCID of the source database.>>
       #source_encryption_key_location_details = {
       #  provider_type = "<<TYPE>>" #<<Types of providers supported for managing database encryption keys>>
-      #  #azure_encryption_key_id = #<<The ID of the Azure Key Vault key.>>
       #  hsm_password = "<<password>>" #<<The password of the HSM user.>>
       #}
       #source_tde_wallet_password = #<<(Required when source=DATAGUARD) The TDE wallet password of the source database specified by 'sourceDatabaseId'.>>
@@ -199,7 +198,6 @@ databases_configuration = {
       #source_database_id = #<<(Required when source=DATAGUARD) The OCID of the source database.>>
       #source_encryption_key_location_details = {
       #  provider_type = "<<TYPE>>" #<<Types of providers supported for managing database encryption keys>>
-      #  #azure_encryption_key_id = #<<The ID of the Azure Key Vault key.>>
       #  hsm_password = "<<password>>" #<<The password of the HSM user.>>
       #}
       #source_tde_wallet_password = #<<(Required when source=DATAGUARD) The TDE wallet password of the source database specified by 'sourceDatabaseId'.>>

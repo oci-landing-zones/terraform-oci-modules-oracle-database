@@ -11,7 +11,7 @@ locals {
   ### Discovering the home region.
   regions_map     = { for r in data.oci_identity_regions.these.regions : r.key => r.name } # All regions indexed by region key.
   home_region_key = data.oci_identity_tenancy.this.home_region_key                         # Home region key obtained from the tenancy data source
-  
+
 }
 provider "oci" {
   region               = var.region
@@ -35,10 +35,10 @@ provider "oci" {
 }
 
 terraform {
-   required_providers {
-     oci = {
-       source = "oracle/oci"
-       configuration_aliases = [oci.home]
-     }
-   }
+  required_providers {
+    oci = {
+      source                = "oracle/oci"
+      configuration_aliases = [oci.home]
+    }
+  }
 }

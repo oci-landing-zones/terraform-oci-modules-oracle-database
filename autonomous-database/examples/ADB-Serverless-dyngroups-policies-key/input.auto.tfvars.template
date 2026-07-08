@@ -21,7 +21,7 @@ autonomous_databases_configuration = {
       networking = {
         subnet_id               = "CLIENT-SUBNET"
         enable_private_endpoint = true
-        private_endpoint_ip     = "172.16.0.0/20"
+        private_endpoint_ip     = "172.16.0.25"
       }
       security = {
         tde = {
@@ -32,9 +32,9 @@ autonomous_databases_configuration = {
   }
 }
 
-kms_dependency = {
+vaults_dependency = {
   CUSTOM-VAULT = {
-    id = "<REPLACE-WITH-OCID>"
+    id = "<REPLACE-WITH-VAULT-OCID>"
   }
 }
 

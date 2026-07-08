@@ -5,33 +5,47 @@
 
 # NOTE!!! Note that the order of the results returned can change if availability domains are added or removed; 
 # therefore, do not create a dependency on the list order.
+locals {
+  cloud_exadata_infrastructures = {
+    for infra_key, infra in coalesce(try(var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures, null), {}) :
+    infra_key => merge(infra, {
+      compartment_id_input = infra.compartment_id != null ? infra.compartment_id : var.default_compartment_id
+      compartment_id = infra.compartment_id != null ? (
+        can(regex("^ocid1\\.compartment", infra.compartment_id)) ? infra.compartment_id : try(var.compartments_dependency[infra.compartment_id].id, null)
+        ) : (
+        var.default_compartment_id != null ? (
+          can(regex("^ocid1\\.compartment", var.default_compartment_id)) ? var.default_compartment_id : try(var.compartments_dependency[var.default_compartment_id].id, null)
+        ) : null
+      )
+      subscription_id_input = infra.subscription_id
+      subscription_id = infra.subscription_id == null ? null : (
+        can(regex("^ocid1\\.", infra.subscription_id)) ? infra.subscription_id : try(var.subscription_dependency[infra.subscription_id].id, null)
+      )
+    })
+  }
+}
+
 data "oci_identity_availability_domains" "ads" {
-  for_each = var.cloud_exadata_infrastructures_configuration != null ? var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures != null ? var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures : {} : {}
-  compartment_id = each.value.compartment_id != null ? (
-    length(regexall("^ocid1.*$", each.value.compartment_id)) > 0 ? each.value.compartment_id : var.compartments_dependency[each.value.compartment_id].id
-    ) : (
-  length(regexall("^ocid1.*$", var.default_compartment_id)) > 0 ? var.default_compartment_id : var.compartments_dependency[var.default_compartment_id].id)
+  for_each       = { for k, v in local.cloud_exadata_infrastructures : k => v if v.compartment_id != null }
+  compartment_id = each.value.compartment_id
 }
 
 
 resource "oci_database_cloud_exadata_infrastructure" "these" {
-  for_each = var.cloud_exadata_infrastructures_configuration != null ? var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures : {}
+  for_each = local.cloud_exadata_infrastructures
 
-  display_name = each.value.display_name
-  shape        = each.value.shape
-  compartment_id = each.value.compartment_id != null ? (
-    can(regex("^ocid1\\.compartment", each.value.compartment_id)) ? each.value.compartment_id : try(var.compartments_dependency[each.value.compartment_id].id, null)
-    ) : (
-    var.default_compartment_id != null ? (
-      can(regex("^ocid1\\.compartment", var.default_compartment_id)) ? var.default_compartment_id : try(var.compartments_dependency[var.default_compartment_id].id, null)
-    ) : null
-  )
+  display_name   = each.value.display_name
+  shape          = each.value.shape
+  compartment_id = each.value.compartment_id
   availability_domain = each.value.availability_domain != null ? each.value.availability_domain : (
-    try(data.oci_identity_availability_domains.ads[each.key].availability_domains[0].name, null)
+    try(sort([for ad in data.oci_identity_availability_domains.ads[each.key].availability_domains : ad.name])[0], null)
   )
   compute_count = each.value.compute_count
-  customer_contacts {
-    email = each.value.customer_contacts.email
+  dynamic "customer_contacts" {
+    for_each = each.value.customer_contacts != null ? [each.value.customer_contacts] : []
+    content {
+      email = customer_contacts.value.email
+    }
   }
 
   database_server_type = each.value.database_server_type
@@ -67,5 +81,17 @@ resource "oci_database_cloud_exadata_infrastructure" "these" {
 
   storage_count       = each.value.storage_count
   storage_server_type = each.value.storage_server_type
-  subscription_id     = can(regex("^ocid1\\.", each.value.subscription_id)) ? each.value.subscription_id : try(var.subscription_dependency[each.value.subscription_id].id, null)
+  subscription_id     = each.value.subscription_id
+
+  lifecycle {
+    precondition {
+      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.compartment\\.", each.value.compartment_id))
+      error_message = "compartment_id must be a compartment OCID or a key in compartments_dependency."
+    }
+
+    precondition {
+      condition     = each.value.subscription_id_input == null ? true : (each.value.subscription_id != null && can(regex("^ocid1\\.", each.value.subscription_id)))
+      error_message = "subscription_id must be an OCID or a key in subscription_dependency."
+    }
+  }
 }

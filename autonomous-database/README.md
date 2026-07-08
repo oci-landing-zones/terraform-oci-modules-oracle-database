@@ -4,8 +4,8 @@
 
 This module manages Autonomous Databases and related resources in Oracle Cloud Infrastructure (OCI). Autonomous Database is a fully-managed, secure, and highly available database service that automates database management, tuning, and security.
 
-The module supports bringing in external dependencies that managed resources depend on, including compartments, subnets, network security groups, vaults, encryption keys and secrets.
-This module does not deploy a container database for Autonomous Database Dedicated. All deployed databases are pluggable databases or Autonomous Database Serverless.
+The module supports bringing in external dependencies that managed resources depend on, including compartments, subnets, network security groups, vaults and encryption keys.
+This module does not deploy Autonomous VM Clusters or Autonomous Container Databases. It deploys Autonomous Databases on shared/serverless infrastructure or inside an existing Autonomous Container Database.
 
 Check [module specification](./SPEC.md) for a full description of module requirements, supported variables, managed resources and outputs.
 
@@ -17,6 +17,7 @@ Check the [examples](./examples/) folder for actual module usage.
 - [Module Functioning](#functioning)
   - [Autonomous Databases](#adb)
   - [External Dependencies](#ext-dep)
+- [Outputs](#outputs)
 - [Related Documentation](#related)
 - [Known Issues](#issues)
 
@@ -27,7 +28,7 @@ The following features are currently supported by the module:
 - Network access control using private endpoints and whitelisted IPs.
 - Transparent data encryption using customer-managed keys.
 - Integration with IAM policies and dynamic groups
-- Support for external dependencies (compartments, subnets, network security groups, vaults, keys, secrets)
+- Support for external dependencies (compartments, subnets, network security groups, vaults and keys)
 
 ## <a name="requirements">Requirements</a>
 ### Terraform Version >= 1.3.0
@@ -44,10 +45,10 @@ Allow group <GROUP-NAME> to use subnets in compartment <NETWORK-COMPARTMENT-NAME
 Allow group <GROUP-NAME> to use network-security-groups in compartment <NETWORK-COMPARTMENT-NAME>
 Allow group <GROUP-NAME> to use keys in compartment <KMS-COMPARTMENT-NAME>
 Allow group <GROUP-NAME> to manage dynamic-groups in tenancy
-Allow group <GROUP-NAME> to manage policies in compartment <KMS-COMPARTMENT-NAME>
+Allow group <GROUP-NAME> to manage policies in tenancy
 ```
 
-Note: When deploying ADB-Dedicated with an exisiting Core LZ, in \<service_label\>-top-cmp, edit \<service_label\>-database-dynamic-group-policy, change
+Note: When deploying ADB Dedicated, TDE is inherited from the existing Autonomous Container Database. If that container database is managed by an existing Core LZ, review the container database key policy outside this module. In \<service_label\>-top-cmp, edit \<service_label\>-database-dynamic-group-policy, change
 ```
 allow dynamic-group <service_label>-database-kms-dynamic-group to use keys in compartment <service_label>-database-cmp
 ```
@@ -66,18 +67,28 @@ For invoking the module locally, set the module *source* attribute to the module
 module "autonomous_database" {
   source = "../.."
   autonomous_databases_configuration = var.autonomous_databases_configuration
+  tenancy_ocid                       = var.tenancy_ocid
+  providers = {
+    oci      = oci
+    oci.home = oci.home
+  }
 }
 ```
 For invoking the module remotely, set the module *source* attribute to the *autonomous-database* module folder in this repository:
 ```
 module "autonomous_database" {
-  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata/autonomous-database"
+  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//autonomous-database"
   autonomous_databases_configuration = var.autonomous_databases_configuration
+  tenancy_ocid                       = var.tenancy_ocid
+  providers = {
+    oci      = oci
+    oci.home = oci.home
+  }
 }
 ```
 To refer to a specific module version, add an extra slash before the folder name and append *ref=<version>* to the *source* attribute value:
 ```
-  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata/autonomous-database?ref=v1.0.0"
+  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//autonomous-database?ref=v1.2.0"
 ```
 
 ## <a name="functioning">Module Functioning</a>
@@ -98,11 +109,11 @@ The databases themselves are defined within the **databases** attribute. In Terr
 - **compartment_id**: (Optional) The database compartment. *default_compartment_id* is used if undefined.
 - **display_name**: (Optional) The database display name. It defaults to *db_name* if undefined.
 - **db_name**: The database name.
-- **db_workload**: (Optional) The workload type ("OLTP", "DW", "AJD"). Default is "OLTP".
-- **db_version**: (Optional) The database version. Default is "23ai".
+- **db_workload**: (Optional) The workload type ("OLTP", "DW", "AJD", "APEX"). Default is "OLTP".
+- **db_version**: (Optional) The database version. Default is "26ai".
 - **db_edition**: (Optional) The database edition ("ENTERPRISE_EDITION","STANDARD_EDITION").
-- **is_dedicated**: (Optional) Indicates whether the database is provisioned on a Dedicated Exadata Infrastructure. Set to false if provisioning a serverless autonomous database. Default is true. 
-- **autonomous_container_db_id**: (Optional) The Autonomous Container Database in which to provision this Autonomous Database. Only applicable and required when *is_dedicated* is true. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *databases_dependency* variable.
+- **is_dedicated**: (Optional) Indicates whether the database is provisioned on a Dedicated Exadata Infrastructure. Set to false for Autonomous Database Shared/Serverless. Default is true.
+- **autonomous_container_db_id**: (Optional) The Autonomous Container Database in which to provision this Autonomous Database. Only applicable and required when *is_dedicated* is true. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *databases_dependency* variable. The OCI Landing Zones Orchestrator integration expects a literal Autonomous Container Database OCID in this release.
 - **ecpu_count**: (Optional) The number of eCPU cores. Default is 2.
 - **dw_storage_size_in_tbs**: (Optional) The storage size in Terabytes for workloads of type "DW". Default is 1.
 - **non_dw_storage_size_in_gbs**: (Optional) The storage size in Gigabytes for workloads other than "DW". Default is 32. For "DW" workloads, use *dw_storage_size_in_tbs*.
@@ -112,22 +123,22 @@ The databases themselves are defined within the **databases** attribute. In Terr
 - **license_model**: (Optional) The license model ("LICENSE_INCLUDED", "BRING_YOUR_OWN_LICENSE"). Default is "LICENSE_INCLUDED".
 - **enable_cpu_auto_scaling**: (Optional) Whether CPU auto scaling is enabled. Default is true.
 - **enable_storage_auto_scaling**: (Optional) Whether storage auto scaling is enabled. Default is false. Only applicable for serverless, not applicable for dedicated.
-- **admin_password**: The database admin password.
 - **character_set**: (Optional) The database character set. Default is "AL32UTF8". 
 - **national_character_set**: (Optional) The database character set. Default is "AL16UTF16". 
 - **backup_retention_in_days**: (Optional) Retention period, in days, for long-term backups. For ADB-D, this is determined by the value set at Autonomous Container Database
-- **networking**: (Optional) The database networking settings. It defaults to a public database without any allowed client IPs if undefined. It contains the following attributes:
+- **networking**: (Optional) The database networking settings. ADB Shared/Serverless must use a private endpoint, configure non-empty whitelisted IPs, or explicitly allow unrestricted public access with *allow_public_access_without_whitelist*. ADB Dedicated is unaffected by this guardrail. It contains the following attributes:
     - **whitelisted_ips**: (Optional) The List of IP addresses allowed to access the database. It does not apply when private endpoint is enabled. Default is an empty list([]).
     - **enable_private_endpoint** (Optional) Whether a private endpoint is enabled for the database. When this is true, the database is assigned a private IP address from the subnet provided in *subnet_id*, and the attribute *whitelisted_ips* is ignored. For databases enabled with private endpoint, the network access control is provided by security rules in Network Security Groups (NSGs) or security lists. Default is false.
-    - **private_endpoint_ip** (Optional): The IP address for the database private endpoint. It must be within the CIDR range of the subnet provided in *subnet_id*. If undefined, a random IP address is chosen from the subnet range. Only applicable when *enable_private_endpoint* is true.
+    - **allow_public_access_without_whitelist**: (Optional) Whether ADB Shared/Serverless may be planned with public access and no whitelisted IPs. Default is false.
+    - **private_endpoint_ip** (Optional): The private IP address for the database private endpoint. It must be a single IP within the CIDR range of the subnet provided in *subnet_id*. If undefined, a random IP address is chosen from the subnet range. Only applicable when *enable_private_endpoint* is true.
     - **subnet_id**: (Optional) The subnet for the database. Only applicable when *enable_private_endpoint* is true. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *network_dependency* variable.
     - **network_security_groups**: (Optional) List of NSGs for the database. Only applicable when *enable_private_endpoint* is true. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *network_dependency* variable. Only applicable for Serverless, not applicable for Dedicated.
 - **security**: (Optional) The database security settings. Only applicable for Serverless, not applicable for Dedicated. When using ADB-D, this is determined by the Autonomous Container Database.
     - **tde**: (Optional) Transparent Data Encryption settings. 
       - **deploy_iam_policy_and_dyn_group_for_encryption_key**: (Optional) Whether to deploy an IAM policy and dynamic group for allowing the database to read an encryption key for transparent data encryption. Default value is *true*.
-      - **existing_oci_vault_id**(Optional): The OCI vault holding the encryption key. Required if defining tde. 
+      - **existing_oci_vault_id**(Optional): The OCI vault holding the encryption key. Required if defining tde. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *vaults_dependency* variable. For 1.1.0 upgrade compatibility only, vault OCIDs stored in *kms_dependency* are accepted as a deprecated fallback when no *vaults_dependency* match exists.
       - **deploy_new_oci_encryption_key**: (Optional) Whether to deploy a new encyption key in the existing vault. Default value is *true*.
-      - **existing_oci_encryption_key_id**: (Optional) The existing encryption key id.
+      - **existing_oci_encryption_key_id**: (Optional) The existing encryption key id. Required when *deploy_new_oci_encryption_key* is *false* and *deploy_iam_policy_and_dyn_group_for_encryption_key* is *true*.
     - **zpr_attributes**: (Optional) List of objects representing ZPR attributes. Only applicable when *enable_private_endpoint* is true.
         - **namespace**: (Optional) ZPR namespace. Default is *oracle-zpr*, a default namespace created by Oracle and available in all tenancies.
         - **attr_name**: (Optional) ZPR attribute name. It must exist in the specified namespace.
@@ -167,6 +178,16 @@ Example:
   }
 }
 ```
+- **vaults_dependency**: A map of objects containing externally managed vaults. All map objects must have the same type and must contain at least an *id* attribute with the vault OCID. Use this dependency for *security.tde.existing_oci_vault_id*. The legacy 1.1.0 pattern of storing vault OCIDs in *kms_dependency* is deprecated and kept only as a temporary upgrade fallback.
+
+Example:
+```
+{
+  "DATABASE-VAULT": {
+    "id": "ocid1.vault.oc1.iad.abuwcl...yna"
+  }
+}
+```
 - **kms_dependency**: A map of objects containing externally managed encryption keys. All map objects must have the same type and must contain at least an *id* attribute with the encryption key OCID.
 
 Example:
@@ -189,6 +210,30 @@ Example:
   },
 }
 ```
+
+## Outputs
+
+The module keeps the `autonomous_databases` output for backward compatibility and also publishes `autonomous_database_resources` for downstream dependency consumption. The dependency output contains the minimal Autonomous Database map currently managed by this module:
+
+```
+{
+  "autonomous_databases": {
+    "<database-key>": {
+      "id": "ocid1.autonomousdatabase.oc1...",
+      "compartment_id": "ocid1.compartment.oc1...",
+      "display_name": "<display-name>",
+      "db_workload": "OLTP",
+      "ecpu_count": 2
+    }
+  }
+}
+```
+
+The `autonomous_databases_resources` output is intentionally scoped to Autonomous Databases. The singular `autonomous_database_resources` output is an alias for integrations that still read the singular Autonomous Database output name. Additional Autonomous Database resources can be added to this output when the module starts managing them.
+
+The `autonomous_databases_dependency` output exposes the same minimal shape as `autonomous_databases_resources` for OCI Landing Zones Orchestrator releases that consume the module-owned dependency output directly instead of falling back to raw resource outputs.
+
+When consumed through OCI Landing Zones Orchestrator or RMS Facade release 2.1.2, this map is persisted in the generated Autonomous Databases output file under the `autonomous_databases` top-level key.
 
 
 
