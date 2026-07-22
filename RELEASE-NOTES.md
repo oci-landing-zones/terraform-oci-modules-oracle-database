@@ -1,4 +1,11 @@
 # Database Modules Release Notes
+# Unreleased
+### Updates
+1. Added the reusable `common-database` module for Database Homes, container databases, and pluggable databases.
+2. Refactored `exadata-database` to compose `common-database` while preserving its existing input and output contract.
+3. Added Terraform moved declarations so existing DB Home, database, and PDB state addresses migrate into the child module without resource recreation.
+4. Added logical-key dependencies for externally managed VM clusters and DB systems to support composition with Exadata and other database infrastructure modules.
+
 # Jul 7, 2026 Release Notes - 1.2.0
 > Upgrade guidance: 1.1.0 configurations remain accepted in 1.2.0, including the deprecated DB Home inline database path, but should review the compatibility impacts and recommended migration steps below before applying. New configurations should use the 1.2.0 contracts directly.
 

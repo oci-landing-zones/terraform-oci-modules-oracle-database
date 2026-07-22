@@ -13,7 +13,9 @@
 
 ## Modules
 
-No modules.
+| Name | Source | Version |
+| ---- | ------ | ------- |
+| <a name="module_common_database"></a> [common_database](#module_common_database) | ../common-database | n/a |
 
 ## Resources
 
@@ -21,9 +23,6 @@ No modules.
 | ---- | ---- |
 | [oci_database_cloud_exadata_infrastructure.these](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_exadata_infrastructure) | resource |
 | [oci_database_cloud_vm_cluster.these](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_vm_cluster) | resource |
-| [oci_database_database.these](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_database) | resource |
-| [oci_database_db_home.these](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_db_home) | resource |
-| [oci_database_pluggable_database.these](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_pluggable_database) | resource |
 | [oci_database_db_servers.these](https://registry.terraform.io/providers/oracle/oci/latest/docs/data-sources/database_db_servers) | data source |
 | [oci_identity_availability_domains.ads](https://registry.terraform.io/providers/oracle/oci/latest/docs/data-sources/identity_availability_domains) | data source |
 

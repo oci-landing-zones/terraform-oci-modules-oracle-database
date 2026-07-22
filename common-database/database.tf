@@ -174,14 +174,14 @@ locals {
       kms_key_id_input         = local.database_kms_key_ids[key]
       source_database_id_input = try(db.database.source_database_id, null)
       dbrs_policy_id_input     = local.database_dbrs_policy_ids[key]
-      db_home_id               = can(regex("^ocid1\\.dbhome\\.", db.db_home_id)) ? db.db_home_id : try(oci_database_db_home.these[db.db_home_id].id, var.exadata_database_dependency.database_homes[db.db_home_id].id, null)
+      db_home_id               = can(regex("^ocid1\\.dbhome\\.", db.db_home_id)) ? db.db_home_id : try(oci_database_db_home.these[db.db_home_id].id, var.database_dependency.database_homes[db.db_home_id].id, null)
       admin_password           = db.database.admin_password
       tde_wallet_password      = try(db.database.tde_wallet_password, null)
       pdb_admin_password       = try(db.database.pdb_admin_password, db.database.admin_password)
       key_store_id             = local.database_key_store_ids[key]
       kms_key_id               = can(regex("^ocid1\\.", local.database_kms_key_ids[key])) ? local.database_kms_key_ids[key] : try(var.kms_dependency[local.database_kms_key_ids[key]].id, null)
       kms_key_version_id       = local.database_kms_key_version_ids[key]
-      source_database_id       = can(regex("^ocid1\\.database\\.", try(db.database.source_database_id, null))) ? db.database.source_database_id : try(var.exadata_database_dependency.databases[db.database.source_database_id].id, null)
+      source_database_id       = can(regex("^ocid1\\.database\\.", try(db.database.source_database_id, null))) ? db.database.source_database_id : try(var.database_dependency.databases[db.database.source_database_id].id, null)
       dbrs_policy_id           = local.database_resolved_dbrs_policy_ids[key]
 
       # Tag defaults
@@ -280,7 +280,7 @@ resource "oci_database_database" "these" {
   lifecycle {
     precondition {
       condition     = each.value.db_home_id != null && can(regex("^ocid1\\.dbhome\\.", each.value.db_home_id))
-      error_message = "db_home_id must be a DB Home OCID or a key in exadata_database_dependency.database_homes."
+      error_message = "db_home_id must be a DB Home OCID or a key in database_dependency.database_homes."
     }
 
     precondition {
@@ -295,7 +295,7 @@ resource "oci_database_database" "these" {
 
     precondition {
       condition     = each.value.source_database_id_input == null ? true : (each.value.source_database_id != null && can(regex("^ocid1\\.database\\.", each.value.source_database_id)))
-      error_message = "source_database_id must be a database OCID or a key in exadata_database_dependency.databases."
+      error_message = "source_database_id must be a database OCID or a key in database_dependency.databases."
     }
 
     precondition {

@@ -7,9 +7,9 @@ locals {
     key => merge(pdb, {
       # Resolve Container Database ID: use as-is if OCID, or reference created container DB by key
       source_pluggable_database_id_input = try(pdb.pdb_creation_type_details.source_pluggable_database_id, null)
-      container_database_id              = can(regex("^ocid1\\.database\\.", pdb.container_database_id)) ? pdb.container_database_id : try(oci_database_database.these[pdb.container_database_id].id, var.exadata_database_dependency.databases[pdb.container_database_id].id, null)
+      container_database_id              = can(regex("^ocid1\\.database\\.", pdb.container_database_id)) ? pdb.container_database_id : try(oci_database_database.these[pdb.container_database_id].id, var.database_dependency.databases[pdb.container_database_id].id, null)
       pdb_creation_type_details = try(pdb.pdb_creation_type_details, null) != null ? merge(pdb.pdb_creation_type_details, {
-        source_pluggable_database_id = can(regex("^ocid1\\.", pdb.pdb_creation_type_details.source_pluggable_database_id)) ? pdb.pdb_creation_type_details.source_pluggable_database_id : try(var.exadata_database_dependency.pluggable_databases[pdb.pdb_creation_type_details.source_pluggable_database_id].id, null)
+        source_pluggable_database_id = can(regex("^ocid1\\.", pdb.pdb_creation_type_details.source_pluggable_database_id)) ? pdb.pdb_creation_type_details.source_pluggable_database_id : try(var.database_dependency.pluggable_databases[pdb.pdb_creation_type_details.source_pluggable_database_id].id, null)
       }) : null
       # Tag defaults
       defined_tags  = coalesce(try(pdb.defined_tags, null), var.default_defined_tags)
@@ -58,7 +58,7 @@ resource "oci_database_pluggable_database" "these" {
 
     precondition {
       condition     = each.value.source_pluggable_database_id_input == null ? true : (try(each.value.pdb_creation_type_details.source_pluggable_database_id, null) != null && can(regex("^ocid1\\.pluggabledatabase\\.", each.value.pdb_creation_type_details.source_pluggable_database_id)))
-      error_message = "source_pluggable_database_id must be a pluggable database OCID or a key in exadata_database_dependency.pluggable_databases."
+      error_message = "source_pluggable_database_id must be a pluggable database OCID or a key in database_dependency.pluggable_databases."
     }
 
     ignore_changes = [

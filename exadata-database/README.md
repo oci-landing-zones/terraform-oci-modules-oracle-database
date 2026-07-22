@@ -21,6 +21,8 @@
 ## <a name="overview">Overview</a>
 This repository contains Terraform OCI (Oracle Cloud Infrastructure) modules for resources that help customers deploy and manage Exadata Database Service on Dedicated Infrastructure on OCI.
 
+Database Homes, container databases, and pluggable databases are implemented by the sibling [`common-database`](../common-database/README.md) module. This Exadata module preserves its existing inputs and outputs and composes that module with the Exadata infrastructure and VM clusters it creates.
+
 The following resources are available:
 
 - Exadata Infrastructure
