@@ -8,7 +8,7 @@ variable "fingerprint" { default = "" }
 variable "private_key_path" { default = "" }
 variable "private_key_password" { default = "" }
 
-variable "rcv_configuration" {
+variable "autonomous_recovery_service_configuration" {
   description = "Recovery Service configuration attributes."
   type        = any
   default     = null

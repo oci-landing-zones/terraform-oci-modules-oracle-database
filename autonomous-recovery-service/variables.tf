@@ -1,7 +1,12 @@
 # Copyright (c) 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
-variable "rcv_configuration" {
+variable "tenancy_ocid" {
+  type = string
+  default = null
+}
+
+variable "autonomous_recovery_service_configuration" {
   description = "Autonomous Recovery Service configuration."
 
   type = object({
@@ -9,15 +14,16 @@ variable "rcv_configuration" {
     default_defined_tags   = optional(map(string), {})
     default_freeform_tags  = optional(map(string), {})
 
-    subnets = optional(map(object({
-      compartment_id = optional(string)
-      display_name   = string        
-      vcn_id         = string                     # the OCID of the VCN or a key reference in var.network_dependency.vcns associated with the recovery service subnet.
-      subnet_ids     = list(string)               # list of subnet OCIDs or key references in var.network_dependency.subnets associated with the recovery service subnet.
-      nsg_ids        = optional(list(string), []) # list of network security group OCIDs or key references in var.network_dependency.network_security_groups associated with the recovery service subnet.
-      defined_tags   = optional(map(string), {})
-      freeform_tags  = optional(map(string), {})
-    })))
+    recovery_subnets = optional(map(object({
+      compartment_id     = optional(string)
+      display_name       = string        
+      vcn_id             = string                     # the OCID of the VCN or a key reference in var.network_dependency.vcns associated with the recovery service subnet.
+      subnet_ids         = list(string)               # list of subnet OCIDs or key references in var.network_dependency.subnets associated with the recovery service subnet.
+      nsg_ids            = optional(list(string), []) # list of network security group OCIDs or key references in var.network_dependency.network_security_groups associated with the recovery service subnet.
+      enable_default_nsg = optional(bool, true)   # Indicates whether to enable the default network security group for the recovery service subnet. If set to true, the default network security group is enabled for the recovery service subnet.
+      defined_tags       = optional(map(string), {})
+      freeform_tags      = optional(map(string), {})
+    })), {})
 
     protection_policies = optional(map(object({
       compartment_id = optional(string)
@@ -27,7 +33,7 @@ variable "rcv_configuration" {
       policy_locked_date_time = optional(string)     # An RFC3339 formatted datetime string that specifies the exact date and time for the retention lock to take effect and permanently lock the retention period defined in the policy.
       defined_tags   = optional(map(string), {})
       freeform_tags  = optional(map(string), {})
-    })))
+    })), {})
 
     protected_databases = optional(map(object({
       compartment_id = optional(string)
@@ -44,17 +50,7 @@ variable "rcv_configuration" {
       subscription_id  = optional(string)    # The OCID of the cloud service subscription to which you want to link the protected database. For example, specify the Microsoft Azure subscription ID if you want to provision the protected database in Azure. 
       defined_tags   = optional(map(string), {})
       freeform_tags  = optional(map(string), {})
-    })))
-
-    long_term_backups = optional(map(object({
-      protected_database_id = string
-      retention_period_in_days = optional(number,365) # The maximum period in days to retain the long-term backup. Minimum value is 90 days, and maximum value is 3650 days (10 years). 
-      display_name   = optional(string)
-      retention_point_in_time = optional(string) # An RFC3339 formatted datetime string that indicates the desired target point in time in the database at which you want to create the long-term backup. 
-      retention_scn = optional(string) # The system change number (SCN) that indicates the desired target point in time in the database at which you want to create the long-term backup.
-      defined_tags   = optional(map(string), {})
-      freeform_tags  = optional(map(string), {})
-    })))
+    })), {})
   })
 
 }

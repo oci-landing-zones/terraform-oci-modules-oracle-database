@@ -4,6 +4,7 @@
 
 module "vision" {
   source = "../.."
-  rcv_configuration = var.rcv_configuration
+  tenancy_ocid = var.tenancy_ocid
+  autonomous_recovery_service_configuration = var.autonomous_recovery_service_configuration
 }
 

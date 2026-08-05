@@ -23,14 +23,15 @@
 # Input Variable
 #---------------------------------------
 
-rcv_configuration = {
+autonomous_recovery_service_configuration = {
     default_compartment_id = "<REPLACE-WITH-COMPARTMENT-ID>"
-    subnets = {
+    recovery_subnets = {
         SUBNET-1 = {
-            display_name = "rcv-subnet-1"
-            vcn_id       = "<REPLACE-WITH-VCN-ID>"
-            subnet_ids   = ["<REPLACE-WITH-SUBNET-ID>"]
-            nsg_ids      = ["<REPLACE-WITH-NSG-ID>"]
+            display_name       = "rcv-subnet-1"
+            vcn_id             = "<REPLACE-WITH-VCN-ID>"
+            subnet_ids         = ["<REPLACE-WITH-SUBNET-ID>"]
+            nsg_ids            = ["<REPLACE-WITH-NSG-ID>"]
+            enable_default_nsg = true # true is default, set to false to override with your own NSG(s) in nsg_ids.
         }
     }
     protection_policies = {

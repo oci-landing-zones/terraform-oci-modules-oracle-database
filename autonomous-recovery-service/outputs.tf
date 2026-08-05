@@ -1,22 +1,17 @@
 # Copyright (c) 2026, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
-output "rcv_subnets" {
+output "autonomous_recovery_service_subnets" {
     description = "The Autonomous Recovery Service subnets."
     value       = var.enable_output ? oci_recovery_recovery_service_subnet.these : null
 }
 
-output "rcv_protection_policies" {
+output "autonomous_recovery_service_protection_policies" {
     description = "The Autonomous Recovery Service protection policies"
     value       = var.enable_output ? oci_recovery_protection_policy.these : null
 }
 
-output "rcv_protected_databases" {
+output "autonomous_recovery_service_protected_databases" {
     description = "The Autonomous Recovery Service protected databases"
     value       = var.enable_output ? oci_recovery_protected_database.these : null
-}    
-
-output "rcv_long_term_backups" {
-    description = "The Autonomous Recovery Service long term backups"
-    value       = var.enable_output ? oci_recovery_long_term_backup.these : null
-}    
+} 
