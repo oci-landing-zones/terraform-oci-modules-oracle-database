@@ -3,6 +3,7 @@
 
 variable "tenancy_ocid" {}
 variable "region" { description = "Your tenancy region" }
+variable "home_region" { description = "Your tenancy home region for IAM policies" }
 variable "user_ocid" { default = "" }
 variable "fingerprint" { default = "" }
 variable "private_key_path" { default = "" }

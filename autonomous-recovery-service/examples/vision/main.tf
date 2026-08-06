@@ -4,6 +4,10 @@
 
 module "vision" {
   source = "../.."
+  providers = {
+    oci      = oci
+    oci.home = oci.home
+  }
   tenancy_ocid = var.tenancy_ocid
   autonomous_recovery_service_configuration = var.autonomous_recovery_service_configuration
 }
