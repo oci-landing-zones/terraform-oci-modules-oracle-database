@@ -20,8 +20,8 @@ variable "autonomous_recovery_service_configuration" {
       vcn_id             = string                     # the OCID of the VCN or a key reference in var.network_dependency.vcns associated with the recovery service subnet.
       subnet_ids         = list(string)               # list of subnet OCIDs or key references in var.network_dependency.subnets associated with the recovery service subnet.
       nsg_ids            = optional(list(string), []) # list of network security group OCIDs or key references in var.network_dependency.network_security_groups associated with the recovery service subnet.
-      enable_default_nsg = optional(bool, true)       # Indicates whether to enable the default network security group for the recovery service subnet. If set to true, the default network security group is enabled for the recovery service subnet.
-      enable_iam_policies= optional(bool, true)
+      enable_default_nsg = optional(bool, false)       # Indicates whether to enable the default network security group for the recovery service subnet. If set to true, the default network security group is enabled for the recovery service subnet.
+      enable_iam_policies= optional(bool, false)
       defined_tags       = optional(map(string), {})
       freeform_tags      = optional(map(string), {})
     })), {})
