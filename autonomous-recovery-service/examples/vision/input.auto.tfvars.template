@@ -1,0 +1,57 @@
+# Copyright (c) 2026 Oracle and/or its affiliates.
+# Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
+
+#--------------------------------------------------------------------------------------------------------------------------------------
+# 1. Rename this file to <project-name>.auto.tfvars, where <project-name> is a name of your choice.
+# 2. Provide values for "Tenancy Connectivity Variables".
+# 3. Replace <REPLACE-WITH-*> placeholders with appropriate values.
+#--------------------------------------------------------------------------------------------------------------------------------------
+
+#---------------------------------------
+# Tenancy Connectivity Variables
+#---------------------------------------
+
+#tenancy_ocid         = "<REPLACE-WITH-TENANCY-OCID>"      # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "Tenancy: <your tenancy name>").
+#user_ocid            = "<REPLACE-WITH-USER-OCID>"         # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "My profile").
+#fingerprint          = "<REPLACE-WITH-FINGERPRINT>"       # The fingerprint can be gathered from your user account. In the "My profile page, click "API keys" on the menu in left hand side.
+#private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"  # This is the full path on your local system to the API signing private key.
+#private_key_password = ""                                 # This is the password that protects the private key, if any.
+#region               = "<REPLACE-WITH-REGION-NAME>"       # The region name.
+
+
+#---------------------------------------
+# Input Variable
+#---------------------------------------
+
+autonomous_recovery_service_configuration = {
+    default_compartment_id = "<REPLACE-WITH-COMPARTMENT-ID>"
+    enable_iam_policy = true
+    iam_policy_compartment_id = "<REPLACE-WITH-POLICY-COMPARTMENT-ID>" # if unset, default_compartment_id is used.
+    recovery_subnets = {
+        MY-RECOVERY-SUBNET = {
+            display_name       = "my-recovery-subnet"
+            vcn_id             = "<REPLACE-WITH-VCN-ID>"
+            subnet_ids         = ["<REPLACE-WITH-SUBNET-ID>"]
+            nsg_ids            = ["<REPLACE-WITH-NSG-ID>"]
+            enable_default_nsg = false # true is default, set to false to override with your own NSG(s) in nsg_ids.
+        }
+    }
+    protection_policies = {
+        MY-PROTECTION-POLICY= {
+            display_name = "my-protection-policy"
+            backup_retention_period_in_days = 30
+        }
+    }
+    protected_databases = {
+        MY-PROTECTED-DB = {
+            compartment_id = "<REPLACE-WITH-PROTECTED-DB-COMPARTMENT-ID>"
+            password_secret_id = "<REPLACE-WITH-SECRET-ID>"
+            display_name = " my-protected-db"
+            database_unique_name = "<REPLACE-WITH-DB-UNIQUE-NAME>"
+            protection_policy_id = "MY-PROTECTION-POLICY" # you can also provide the Oracle pre-defined policy names: "Platinum", "Gold", "Silver", "Bronze"
+            recovery_subnet_ids = ["<REPLACE-WITH-RECOVERY-SUBNET-ID>"]
+            database_id = "<REPLACE-WITH-DATABASE-ID>"
+            database_size = "M"
+        }    
+    }
+}
