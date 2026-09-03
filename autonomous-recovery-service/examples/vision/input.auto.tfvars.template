@@ -25,19 +25,33 @@
 
 autonomous_recovery_service_configuration = {
     default_compartment_id = "<REPLACE-WITH-COMPARTMENT-ID>"
+    enable_iam_policy = true
+    iam_policy_compartment_id = "<REPLACE-WITH-POLICY-COMPARTMENT-ID>" # if unset, default_compartment_id is used.
     recovery_subnets = {
-        SUBNET-1 = {
-            display_name       = "rcv-subnet-1"
+        MY-RECOVERY-SUBNET = {
+            display_name       = "my-recovery-subnet"
             vcn_id             = "<REPLACE-WITH-VCN-ID>"
             subnet_ids         = ["<REPLACE-WITH-SUBNET-ID>"]
             nsg_ids            = ["<REPLACE-WITH-NSG-ID>"]
-            enable_default_nsg = true # true is default, set to false to override with your own NSG(s) in nsg_ids.
+            enable_default_nsg = false # true is default, set to false to override with your own NSG(s) in nsg_ids.
         }
     }
     protection_policies = {
-        PROTECTION-POLICY-1 = {
-            display_name = "rvc-protection-policy-1"
+        MY-PROTECTION-POLICY= {
+            display_name = "my-protection-policy"
             backup_retention_period_in_days = 30
         }
+    }
+    protected_databases = {
+        MY-PROTECTED-DB = {
+            compartment_id = "<REPLACE-WITH-PROTECTED-DB-COMPARTMENT-ID>"
+            password_secret_id = "<REPLACE-WITH-SECRET-ID>"
+            display_name = " my-protected-db"
+            database_unique_name = "<REPLACE-WITH-DB-UNIQUE-NAME>"
+            protection_policy_id = "MY-PROTECTION-POLICY" # you can also provide the Oracle pre-defined policy names: "Platinum", "Gold", "Silver", "Bronze"
+            recovery_subnet_ids = ["<REPLACE-WITH-RECOVERY-SUBNET-ID>"]
+            database_id = "<REPLACE-WITH-DATABASE-ID>"
+            database_size = "M"
+        }    
     }
 }
