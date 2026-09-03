@@ -21,6 +21,8 @@
 ## <a name="overview">Overview</a>
 This repository contains Terraform OCI (Oracle Cloud Infrastructure) modules for resources that help customers deploy and manage Exadata Database Service on Dedicated Infrastructure on OCI.
 
+Database Homes, container databases, and pluggable databases are implemented by the sibling [`common-database`](../common-database/README.md) module. This Exadata module preserves its existing inputs and outputs and composes that module with the Exadata infrastructure and VM clusters it creates.
+
 The following resources are available:
 
 - Exadata Infrastructure
@@ -81,10 +83,26 @@ The module accepts the following input variables:
 - module_name: The module name. Defaults to "exadata-cloud-service".
 - enable_output: Whether Terraform should enable module output. Defaults to true.
 - compartments_dependency: A map of objects containing the externally managed compartments this module may depend on.
+- subscription_dependency: A map of objects containing externally managed subscriptions this module may depend on.
+- exadata_database_dependency: An object containing externally managed Exadata Database resources this module may depend on.
+- kms_dependency: A map of objects containing externally managed encryption keys this module may depend on.
 - network_dependency: A map of objects containing the externally managed network resources this module may depend on.
+- recovery_service_dependency: A map of externally managed Autonomous Recovery Service protection policies this module may depend on. Pass either the ARS module `protection_policies` output directly, or an object containing a `protection_policies` map.
 - default_compartment_id: Default Compartment ID for all resources.
 - default_defined_tags: Default defined tags for all resources.
 - default_freeform_tags: Default freeform tags for all resources.
+
+### External Dependencies
+The `exadata_database_dependency` input enables multi-stack deployments where Exadata infrastructure, VM clusters, DB homes, databases, or pluggable databases are created in a previous stack and referenced by logical key in a later stack. It accepts the same shape produced by the `exadata_database_resources` output:
+
+- cloud_exadata_infrastructures
+- cloud_vm_clusters
+- database_homes
+- databases
+- pluggable_databases
+
+Each map preserves the logical keys used by the producing stack and exposes at least the resource `id`. Compartment-scoped resources also expose `compartment_id` when available.
+For PDB clone operations, `pdb_creation_type_details.source_pluggable_database_id` may reference a logical key from `exadata_database_dependency.pluggable_databases`.
 
 ### <a name="cloud-exadata-infrastructures">Cloud Exadata Infrastructures</a>
 - cloud_exadata_infrastructures_configuration: Exadata infrastructure configuration. This is an object with the following attributes:
@@ -94,17 +112,17 @@ The module accepts the following input variables:
 Each Exadata infrastructure configuration object has the following attributes:
 
 - display_name: Display name of the Exadata infrastructure.
-- shape: Shape of the Exadata infrastructure. Accepted values are Exadata.X11M, Exadata.X9M, and Exadata.X8M.
+- shape: Shape of the Exadata infrastructure. Accepted values are Exadata.X11MV, Exadata.X11M, Exadata.X9M, and Exadata.X8M.
 - compartment_id: Compartment ID of the Exadata infrastructure. Overrides default compartment ID.
-- availability_domain: Availability domain of the Exadata infrastructure.
+- availability_domain: Availability domain of the Exadata infrastructure. When omitted, the module selects the lexicographically first name from the availability domains discovered for the resolved compartment.
 - compute_count: Compute count of the Exadata infrastructure.
 - customer_contacts: Customer contact information.
-- database_server_type: Database server type. Accepted values are X11M-BASE, X11M, X11M-L, and X11M-XL.
+- database_server_type: Database server type. Accepted values are X11MV, X11M-BASE, X11M, X11M-L, and X11M-XL.
 - defined_tags: Defined tags for the Exadata infrastructure.
 - freeform_tags: Freeform tags for the Exadata infrastructure.
 - maintenance_window: Maintenance window configuration.
 - storage_count: Storage count of the Exadata infrastructure.
-- storage_server_type: Storage server type. Accepted values are X11M-BASE and X11M-HC.
+- storage_server_type: Storage server type. Accepted values are X11MV-HC, X11M-BASE, and X11M-HC.
 - subscription_id: Subscription ID of the Exadata infrastructure.
 
 For more details on this resource, please see OCI Terraform Documentation for [oci_database_cloud_exadata_infrastructure](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_exadata_infrastructure)
@@ -159,10 +177,9 @@ For more details on this resource, please see OCI Terraform Documentation for [o
 
 
 ### <a name="cloud-db-homes">Cloud DB Homes</a>
-- cloud_db_homes: OCI Database Cloud Database Home Configuration. This is a map of DB Home configurations.
+- cloud_db_homes_configuration: OCI Database Cloud Database Home Configuration. This is a map of DB Home configurations.
 
 Each DB Home object has the following attributes:
-- database: Details for creating a database.
 - database_software_image_id: The database software image OCID
 - db_system_id: The OCID of the DB system.
 - db_version: A valid Oracle Database version. For a list of supported versions, use the ListDbVersions operation.
@@ -176,6 +193,10 @@ Each DB Home object has the following attributes:
 - source: The source of database: NONE for creating a new database. DB_BACKUP for creating a new database by restoring from a database backup. VM_CLUSTER_NEW for creating a database for VM Cluster.
 - vm_cluster_id: The OCID or key of the VM cluster.
 
+Container Databases are created with `databases_configuration`, referencing the DB Home by key or OCID. This keeps the module outputs normalized for multi-stack handoff. New configurations should use `databases_configuration` directly.
+
+For backward compatibility with 1.1.0, the deprecated DB Home inline database contract (`cloud_db_homes_configuration[*].database`) is still accepted and normalized internally into standalone CDB resources owned by this module. If the same legacy inline database key appears under multiple DB Homes, the normalized CDB resource/output key is scoped as `<db_home_key>.<database_key>` to avoid overwriting another CDB. For legacy inline restore configurations, `DB_BACKUP` is applied to the standalone CDB resource while the DB Home is normalized to the VM Cluster DB Home creation source. Legacy `source_encryption_key_location_details` supports only `provider_type` and `hsm_password`; `azure_encryption_key_id` is rejected because the standalone provider block does not expose it.
+
 These attributes are not updatable after initial resource creation
 - db_version
 - database_software_image_id
@@ -188,12 +209,14 @@ For more details on this resource, please see OCI Terraform Documentation for [o
 
 Each Database Configuration object has the following attributes:
 - database: Details for creating a database.
+- Optional attribute `database.tde_wallet_password` passes the TDE wallet password for database creation or restore flows when OCI requires it. If omitted, the module passes null and does not default it from `database.admin_password`.
 - db_home_id: The OCID or key of the Database Home.
 - source: The source of the database: Use NONE for creating a new database. Use DB_BACKUP for creating a new database by restoring from a backup. Use DATAGUARD for creating a new STANDBY database for a Data Guard setup. The default is NONE.
 - key_store_id: The OCID of the key store of Oracle Vault.
 - db_version: A valid Oracle Database version. For a list of supported versions, use the ListDbVersions operation.
 - kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
 - kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation.
+- database.db_backup_config.backup_destination_details.dbrs_policy_id: The Autonomous Recovery Service protection policy OCID, or a key in `recovery_service_dependency`.
 
 These attributes are not updatable after initial resource creation:
 - db_home_id
@@ -217,6 +240,11 @@ Each PDB Configuration object has the following attributes:
 - should_create_pdb_backup: Indicates whether to take Pluggable Database Backup after the operation.
 - should_pdb_admin_account_be_locked: The locked mode of the pluggable database admin account. If false, the user needs to provide the PDB Admin Password to connect to it. If true, the pluggable database will be locked and user cannot login to it.
 - tde_wallet_password: The existing TDE wallet password of the CDB.
+
+## Outputs
+The module keeps the raw resource outputs for direct module compatibility and also publishes `cloud_exadata_database_resources` for downstream dependency consumption. Raw DB Home, database, and pluggable database outputs are sensitive because they can include password-backed attributes. The `cloud_exadata_database_resources` output contains minimal maps for Exadata infrastructures, VM clusters, DB homes, databases, and pluggable databases.
+
+The canonical Cloud Exadata Database dependency output is `cloud_exadata_database_resources`. The `cloud_exadata_database_dependency` output exposes the same minimal shape for Orchestrator dependency consumption. The shorter `exadata_database_resources` and `exadata_database_dependency` outputs are aliases for integrations that still read the shorter Exadata names instead of falling back to raw resource outputs.
 
 
 ## <a name="modules-collection">OCI Landing Zones Modules Collection</a>

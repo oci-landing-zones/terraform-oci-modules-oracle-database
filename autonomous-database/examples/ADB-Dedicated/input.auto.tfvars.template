@@ -15,6 +15,7 @@ autonomous_databases_configuration = {
     TEST-ATP = {
       db_name                    = "TESTATP11191043"
       admin_password             = "<REPLACE-WITH-STRONG-PASSWORD>"
+      is_dedicated               = true
       autonomous_container_db_id = "<REPLACE-WITH-OCID>"
     }
   }

@@ -29,6 +29,37 @@ variable "subscription_dependency" {
   default     = null
 }
 
+variable "exadata_database_dependency" {
+  description = "A map of objects containing externally managed Exadata Database resources this module may depend on. All map objects must contain at least an 'id' attribute of string type set with the resource OCID."
+  type = object({
+    cloud_exadata_infrastructures = optional(map(object({
+      id             = string
+      compartment_id = optional(string)
+    })))
+    cloud_vm_clusters = optional(map(object({
+      id             = string
+      compartment_id = optional(string)
+    })))
+    database_homes = optional(map(object({
+      id             = string
+      compartment_id = optional(string)
+    })))
+    databases = optional(map(object({
+      id = string
+    })))
+    pluggable_databases = optional(map(object({
+      id = string
+    })))
+  })
+  default = null
+}
+
+variable "kms_dependency" {
+  description = "A map of objects containing externally managed encryption keys this module may depend on. All map objects must contain at least an 'id' attribute of string type set with the key OCID."
+  type        = map(any)
+  default     = null
+}
+
 variable "network_dependency" {
   description = "A map of objects containing the externally managed network resources (e.g., subnets, NSGs) this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute of string type set with the resource OCID."
   type = object({
@@ -40,6 +71,12 @@ variable "network_dependency" {
     })))
   })
   default = null
+}
+
+variable "recovery_service_dependency" {
+  description = "A map of objects containing externally managed Autonomous Recovery Service resources this module may depend on. Use either a direct protection policy map, or an object with a protection_policies map. Each protection policy object must contain at least an 'id' attribute with the protection policy OCID."
+  type        = any
+  default     = null
 }
 
 variable "default_compartment_id" {
@@ -80,9 +117,9 @@ variable "cloud_exadata_infrastructures_configuration" {
     cloud_exadata_infrastructures = map(object({
       # Attributes for oci_database_cloud_exadata_infrastructure (from https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_exadata_infrastructure)
       display_name        = string
-      shape               = string           # Possible values: Exadata.X11M, Exadata.X9M, Exadata.X8M
+      shape               = string           # Possible values: Exadata.X11MV, Exadata.X11M, Exadata.X9M, Exadata.X8M
       compartment_id      = optional(string) # Overrides default; literal OCID or key in compartments_dependency
-      availability_domain = optional(string) # Default to any valid AD in current compartment.
+      availability_domain = optional(string) # Defaults to the lexicographically first discovered AD.
 
       compute_count = optional(number)
       customer_contacts = optional(object({
@@ -90,7 +127,7 @@ variable "cloud_exadata_infrastructures_configuration" {
       }))
 
       # source: https://docs.public.oneportal.content.oci.oraclecloud.com/en-us/iaas/exadata/doc/ecc-manage-infrastructure.html#Compute%20and%20storage%20configuration
-      database_server_type = optional(string) # Possible values: X11M-BASE, X11M, X11M-L, and X11M-XL
+      database_server_type = optional(string) # Possible values: X11MV, X11M-BASE, X11M, X11M-L, and X11M-XL
       defined_tags         = optional(map(string))
       freeform_tags        = optional(map(string))
 
@@ -108,7 +145,7 @@ variable "cloud_exadata_infrastructures_configuration" {
         weeks_of_month = optional(list(number))
       }))
       storage_count       = optional(number)
-      storage_server_type = optional(string) # X11M-BASE and X11M-HC
+      storage_server_type = optional(string) # X11MV-HC, X11M-BASE, and X11M-HC
       subscription_id     = optional(string)
     }))
   })
@@ -116,25 +153,25 @@ variable "cloud_exadata_infrastructures_configuration" {
   validation {
     condition = var.cloud_exadata_infrastructures_configuration == null ? true : alltrue([
       for k, v in var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures :
-      contains(["Exadata.X11M", "Exadata.X9M", "Exadata.X8M"], v.shape)
+      contains(["Exadata.X11MV", "Exadata.X11M", "Exadata.X9M", "Exadata.X8M"], v.shape)
     ])
-    error_message = "Invalid shape, accepted values are Exadata.X11M, Exadata.X9M, and Exadata.X8M"
+    error_message = "Invalid shape, accepted values are Exadata.X11MV, Exadata.X11M, Exadata.X9M, and Exadata.X8M."
   }
 
   validation {
     condition = var.cloud_exadata_infrastructures_configuration == null ? true : alltrue([
       for k, v in var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures :
-      (v.database_server_type == null || contains(["X11M-BASE", "X11M", "X11M-L", "X11M-XL"], v.database_server_type))
+      (v.database_server_type == null || contains(["X11MV", "X11M-BASE", "X11M", "X11M-L", "X11M-XL"], v.database_server_type))
     ])
-    error_message = "Invalid database server type, accepted values are X11M-BASE, X11M, X11M-L, and X11M-XL."
+    error_message = "Invalid database server type, accepted values are X11MV, X11M-BASE, X11M, X11M-L, and X11M-XL."
   }
 
   validation {
     condition = var.cloud_exadata_infrastructures_configuration == null ? true : alltrue([
       for k, v in var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures :
-      (v.storage_server_type == null || contains(["X11M-BASE", "X11M-HC"], v.storage_server_type))
+      (v.storage_server_type == null || contains(["X11MV-HC", "X11M-BASE", "X11M-HC"], v.storage_server_type))
     ])
-    error_message = "Invalid storage server type, accepted values are X11M-BASE and X11M-HC."
+    error_message = "Invalid storage server type, accepted values are X11MV-HC, X11M-BASE, and X11M-HC."
   }
 }
 
@@ -214,7 +251,6 @@ variable "cloud_db_homes_configuration" {
   default     = null
   type = map(object({
     # Attributes for oci_database_db_home (from https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_db_home)
-    compartment_id              = optional(string) # Exported attribute
     database_software_image_id  = optional(string)
     db_system_id                = optional(string)
     db_version                  = optional(string) # e.g., "19.0.0.0"
@@ -228,6 +264,8 @@ variable "cloud_db_homes_configuration" {
     kms_key_version_id          = optional(string)
     source                      = optional(string, "VM_CLUSTER_NEW") # Valid values: "NONE", "DB_BACKUP", "VM_CLUSTER_NEW"
     vm_cluster_id               = optional(string)
+    # Deprecated v1.1.0 compatibility path. New configurations should use
+    # databases_configuration and reference the DB Home by key or OCID.
     database = optional(map(object({
       admin_password             = string
       backup_id                  = optional(string)
@@ -259,7 +297,6 @@ variable "cloud_db_homes_configuration" {
         azure_encryption_key_id = optional(string)
         hsm_password            = optional(string)
       })))
-      #optional
       freeform_tags       = optional(map(string))
       key_store_id        = optional(string)
       kms_key_id          = optional(string)
@@ -282,6 +319,30 @@ variable "cloud_db_homes_configuration" {
     condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
       for k, v in var.cloud_db_homes_configuration :
       [for dk, dv in coalesce(v.database, {}) :
+        try(length(dv.db_name) <= 8 && can(regex("^[A-Za-z][A-Za-z0-9]*$", dv.db_name)), false)
+      ]
+    ]))
+    error_message = "The legacy inline database name should start with an alphabetical character and have a maximum of 8 characters. Special characters are not permitted."
+  }
+
+  validation {
+    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
+      for k, v in var.cloud_db_homes_configuration :
+      [for dk, dv in coalesce(v.database, {}) :
+        dv.pdb_name == null ? true : (
+          length(dv.pdb_name) <= 30 &&
+          can(regex("^[A-Za-z][A-Za-z0-9]*$", dv.pdb_name)) &&
+          try(upper(dv.pdb_name) != upper(dv.db_name), false)
+        )
+      ]
+    ]))
+    error_message = "The legacy inline initial PDB name should start with an alphabetical character, have a maximum of 30 alphanumeric characters, contain no special characters, and differ from the database name."
+  }
+
+  validation {
+    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
+      for k, v in var.cloud_db_homes_configuration :
+      [for dk, dv in coalesce(v.database, {}) :
         dv.admin_password == null ? true : (
           (can(regex("^[A-Za-z0-9#_-]{9,30}$", dv.admin_password))) &&
           (length(regexall("[A-Z]", dv.admin_password)) >= 2) &&
@@ -291,8 +352,9 @@ variable "cloud_db_homes_configuration" {
         )
       ]
     ]))
-    error_message = "The admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special chars (#, _, -), and minimum 9 to 30 characters."
+    error_message = "The admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
   }
+
   validation {
     condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
       for k, v in var.cloud_db_homes_configuration :
@@ -308,6 +370,18 @@ variable "cloud_db_homes_configuration" {
     ]))
     error_message = "The tde wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
   }
+
+  validation {
+    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
+      for k, v in var.cloud_db_homes_configuration : [
+        for dk, dv in coalesce(v.database, {}) : [
+          for detail in values(coalesce(dv.source_encryption_key_location_details, {})) :
+          detail.azure_encryption_key_id == null
+        ]
+      ]
+    ]))
+    error_message = "The legacy inline source_encryption_key_location_details does not support azure_encryption_key_id because the standalone oci_database_database provider block only supports provider_type and hsm_password."
+  }
 }
 
 variable "databases_configuration" {
@@ -321,6 +395,7 @@ variable "databases_configuration" {
       backup_tde_password        = optional(string)
       character_set              = optional(string)
       database_admin_password    = optional(string) # For when source=DATAGUARD
+      database_id                = optional(string)
       database_software_image_id = optional(string)
       db_backup_config = optional(object({
         auto_backup_enabled     = optional(bool)
@@ -348,26 +423,23 @@ variable "databases_configuration" {
         azure_encryption_key_id = optional(string)
         hsm_password            = optional(string)
       }))
-      freeform_tags                = optional(map(string))
-      key_store_id                 = optional(string)
-      is_active_data_guard_enabled = optional(bool)
-      kms_key_id                   = optional(string)
-      kms_key_version_id           = optional(string)
-      ncharacter_set               = optional(string)
-      pdb_name                     = optional(string)
-      pluggable_databases          = optional(list(string))
-      protection_mode              = optional(string)
-      sid_prefix                   = optional(string)
-      source_database_id           = optional(string)
-      source_tde_wallet_password   = optional(string)
-      source_encryption_key_location_details = optional(object({
-        provider_type           = string
-        azure_encryption_key_id = optional(string)
-        hsm_password            = optional(string)
-      }))
-      tde_wallet_password = optional(string)
-      transport_type      = optional(string)
-      vault_id            = optional(string)
+      freeform_tags                          = optional(map(string))
+      key_store_id                           = optional(string)
+      is_active_data_guard_enabled           = optional(bool)
+      kms_key_id                             = optional(string)
+      kms_key_version_id                     = optional(string)
+      ncharacter_set                         = optional(string)
+      pdb_name                               = optional(string)
+      pluggable_databases                    = optional(list(string))
+      protection_mode                        = optional(string)
+      sid_prefix                             = optional(string)
+      source_database_id                     = optional(string)
+      source_tde_wallet_password             = optional(string)
+      source_encryption_key_location_details = optional(map(string)) # Supported keys: provider_type, hsm_password
+      tde_wallet_password                    = optional(string)
+      time_stamp_for_point_in_time_recovery  = optional(string)
+      transport_type                         = optional(string)
+      vault_id                               = optional(string)
     })
     db_home_id         = string
     source             = string
@@ -379,9 +451,88 @@ variable "databases_configuration" {
   validation {
     condition = var.databases_configuration == null ? true : alltrue([
       for k, v in var.databases_configuration :
-      (length(v.database.db_name) <= 8 && length(regexall("^[A-Za-z]", v.database.db_name)) > 0 && can(regex("^[a-zA-Z0-9_]*$", v.database.db_name)))
+      (length(v.database.db_name) <= 8 && can(regex("^[A-Za-z][A-Za-z0-9]*$", v.database.db_name)))
     ])
     error_message = "The database name should start with an alphabetical character and have a maximum of 8 characters. Special characters are not permitted."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
+      contains(["NONE", "DB_BACKUP", "DATAGUARD"], v.source)
+    ])
+    error_message = "Invalid database source. Accepted values are NONE, DB_BACKUP, and DATAGUARD."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
+      v.source != "DB_BACKUP" ? true : try(length(trimspace(v.database.backup_id)) > 0, false)
+    ])
+    error_message = "backup_id is required when database source is DB_BACKUP."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
+      v.database.pdb_name == null ? true : (
+        length(v.database.pdb_name) <= 30 &&
+        can(regex("^[A-Za-z][A-Za-z0-9]*$", v.database.pdb_name)) &&
+        upper(v.database.pdb_name) != upper(v.database.db_name)
+      )
+    ])
+    error_message = "The initial PDB name should start with an alphabetical character, have a maximum of 30 alphanumeric characters, contain no special characters, and differ from the database name."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
+      v.source != "DATAGUARD" ? true : (
+        try(length(trimspace(v.database.database_admin_password)) > 0, false) &&
+        try(length(trimspace(v.database.protection_mode)) > 0, false) &&
+        try(length(trimspace(v.database.source_database_id)) > 0, false) &&
+        try(length(trimspace(v.database.source_tde_wallet_password)) > 0, false) &&
+        try(length(trimspace(v.database.transport_type)) > 0, false)
+      )
+    ])
+    error_message = "database_admin_password, protection_mode, source_database_id, source_tde_wallet_password, and transport_type are required when database source is DATAGUARD."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
+      v.source != "DATAGUARD" ? true : try(contains(["MAXIMUM_AVAILABILITY", "MAXIMUM_PERFORMANCE", "MAXIMUM_PROTECTION"], v.database.protection_mode), false)
+    ])
+    error_message = "Invalid Data Guard protection_mode. Accepted values are MAXIMUM_AVAILABILITY, MAXIMUM_PERFORMANCE, and MAXIMUM_PROTECTION."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
+      v.source != "DATAGUARD" ? true : try(v.database.transport_type == "ASYNC", false)
+    ])
+    error_message = "Invalid Data Guard transport_type. OCI Database currently supports ASYNC for this module contract."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
+      v.database.source_encryption_key_location_details == null ? true : (
+        contains(keys(v.database.source_encryption_key_location_details), "provider_type") &&
+        alltrue([
+          for detail_key in keys(v.database.source_encryption_key_location_details) :
+          contains(["provider_type", "hsm_password"], detail_key)
+        ])
+      )
+    ])
+    error_message = "source_encryption_key_location_details supports only provider_type and hsm_password. provider_type is required."
+  }
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
+      try(v.database.db_backup_config.backup_destination_details.type, null) == null ? true : contains(["AWS_S3", "DBRS", "OBJECT_STORE", "NFS", "RECOVERY_APPLIANCE", "LOCAL"], v.database.db_backup_config.backup_destination_details.type)
+    ])
+    error_message = "Invalid backup destination type. Accepted values are AWS_S3, DBRS, OBJECT_STORE, NFS, RECOVERY_APPLIANCE, and LOCAL."
   }
   validation {
     condition = var.databases_configuration == null ? true : alltrue([
@@ -416,7 +567,7 @@ variable "pluggable_databases_configuration" {
   description = "Pluggable Database Configuration."
   default     = null
   type = map(object({
-    container_database_id = string # Literal OCID or network dependency key
+    container_database_id = string # Literal OCID, local database key, or exadata_database_dependency key
     pdb_name              = string
 
     container_database_admin_password = optional(string) # Sensitive
@@ -439,6 +590,14 @@ variable "pluggable_databases_configuration" {
     should_pdb_admin_account_be_locked = optional(bool)
     tde_wallet_password                = optional(string)
   }))
+  validation {
+    condition = var.pluggable_databases_configuration == null ? true : alltrue([
+      for k, v in var.pluggable_databases_configuration :
+      (length(v.pdb_name) <= 30 && can(regex("^[A-Za-z][A-Za-z0-9]*$", v.pdb_name)))
+    ])
+    error_message = "The PDB name should start with an alphabetical character and have a maximum of 30 alphanumeric characters. Special characters are not permitted."
+  }
+
   validation {
     condition = var.pluggable_databases_configuration == null ? true : alltrue([
       for k, v in var.pluggable_databases_configuration :

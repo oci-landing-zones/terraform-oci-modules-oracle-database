@@ -36,11 +36,12 @@ variable "autonomous_databases_configuration" {
       national_character_set      = optional(string) # Default is "AL16UTF16"
       backup_retention_in_days    = optional(number) # Retention period, in days, for long-term backups. For ADB-D, this is determined by the value set at Autonomous Container Database
       networking = optional(object({
-        whitelisted_ips         = optional(list(string), []) # does not apply when private endpoint is enabled.
-        enable_private_endpoint = optional(bool, false)
-        private_endpoint_ip     = optional(string)
-        subnet_id               = optional(string)
-        network_security_groups = optional(list(string), []) # Only applicable for Serverless, not applicable for Dedicated.
+        whitelisted_ips                       = optional(list(string), []) # does not apply when private endpoint is enabled.
+        enable_private_endpoint               = optional(bool, false)
+        allow_public_access_without_whitelist = optional(bool, false)
+        private_endpoint_ip                   = optional(string)
+        subnet_id                             = optional(string)
+        network_security_groups               = optional(list(string), []) # Only applicable for Serverless, not applicable for Dedicated.
       }))
       security = optional(object({
         # for ADB-D, tde configuration is inheritated from the autonomous container database
@@ -48,7 +49,7 @@ variable "autonomous_databases_configuration" {
           deploy_iam_policy_and_dyn_group_for_encryption_key = optional(bool, true)
           existing_oci_vault_id                              = string
           deploy_new_oci_encryption_key                      = optional(bool, true)
-          existing_oci_encryption_key_id                     = optional(string)
+          existing_oci_encryption_key_id                     = optional(string) # Required when deploy_new_oci_encryption_key is false and deploy_iam_policy_and_dyn_group_for_encryption_key is true.
         }))
         zpr_attributes = optional(list(object({ # it only applies if networking.enable_private_endpoint is true.
           namespace  = optional(string, "oracle-zpr")
@@ -57,8 +58,8 @@ variable "autonomous_databases_configuration" {
           mode       = optional(string, "enforce")
         })))
       }))
-      defined_tags  = optional(map(string), {})
-      freeform_tags = optional(map(string), {})
+      defined_tags  = optional(map(string))
+      freeform_tags = optional(map(string))
     }))
 
   })
@@ -82,6 +83,40 @@ variable "autonomous_databases_configuration" {
       v.is_dedicated == false || (v.is_dedicated == true && v.autonomous_container_db_id != null)
     ])
     error_message = "Container Database ID must be provided to deploy on Dedicated Exadata Infrastructure. To provision a serverless Autonomous database, set is_dedicated=false."
+  }
+  validation {
+    condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
+      for k, v in var.autonomous_databases_configuration.databases :
+      try(v.is_dedicated, true) == true ||
+      try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == false ||
+      try(v.security.tde.deploy_new_oci_encryption_key, false) == true ||
+      try(v.security.tde.existing_oci_encryption_key_id, null) != null
+    ])
+    error_message = "existing_oci_encryption_key_id is required when ADB Shared/Serverless TDE deploys IAM policy and dynamic group with deploy_new_oci_encryption_key=false."
+  }
+  validation {
+    condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
+      for k, v in var.autonomous_databases_configuration.databases :
+      try(v.networking.enable_private_endpoint, false) == false || try(v.networking.subnet_id, null) != null
+    ])
+    error_message = "subnet_id is required when networking.enable_private_endpoint is true."
+  }
+  validation {
+    condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
+      for k, v in var.autonomous_databases_configuration.databases :
+      try(v.is_dedicated, true) == true ||
+      try(v.networking.enable_private_endpoint, false) == true ||
+      length(try(v.networking.whitelisted_ips, [])) > 0 ||
+      try(v.networking.allow_public_access_without_whitelist, false) == true
+    ])
+    error_message = "ADB Shared/Serverless must set networking.enable_private_endpoint=true, provide networking.whitelisted_ips, or explicitly set networking.allow_public_access_without_whitelist=true."
+  }
+  validation {
+    condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
+      for k, v in var.autonomous_databases_configuration.databases :
+      v.compartment_id != null || var.autonomous_databases_configuration.default_compartment_id != null
+    ])
+    error_message = "Each Autonomous Database must set compartment_id or autonomous_databases_configuration.default_compartment_id."
   }
 }
 
@@ -122,6 +157,14 @@ variable "kms_dependency" {
   description = "A map of objects containing the externally managed encryption keys this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the key OCID) of string type."
   type = map(object({
     id = string # the key OCID.
+  }))
+  default = null
+}
+
+variable "vaults_dependency" {
+  description = "A map of objects containing the externally managed vaults this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the vault OCID) of string type."
+  type = map(object({
+    id = string # the vault OCID.
   }))
   default = null
 }
