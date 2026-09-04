@@ -122,7 +122,7 @@ Setting `enable_output` to `false` sets the outputs to `null`.
 
 ## <a name="related">Related Documentation</a>
 
-- [OCI Database Service](https://docs.oracle.com/en-us/iaas/database/)
+- [OCI Database Service](https://docs.oracle.com/en-us/iaas/Content/Database/Concepts/overview.htm)
 - [Common Database module specification](./SPEC.md)
 
 ## <a name="issues">Known Issues</a>

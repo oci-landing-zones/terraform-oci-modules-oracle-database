@@ -8,7 +8,7 @@ It deploys the following resources:
   - one VM Cluster in subnet-1
   - one VM cluster in subnet-2
 
-See [input.auto.tfvars.template](./input.auto.tfvars) for resource configuration. 
+See [input.auto.tfvars.template](./input.auto.tfvars.template) for resource configuration.
 See [Module's README.md](../../README.md) for overall attributes usage.
 
 ## Using this example
