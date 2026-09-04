@@ -1,10 +1,10 @@
 # OCI Landing Zones Exadata Module
-![Landing_Zone_Logo](./landing_zone_300.png)
+![Landing_Zone_Logo](../landing_zone_300.png)
 
 ## Table of Contents
 
-1. [Early Preview Disclaimer](#early-preview)
 1. [Overview](#overview)
+1. [Getting Started](#getting-started)
 1. [Pre-requisites](#Pre-requisites)
 1. [Module Inputs](#module-inputs)
 1. [Cloud Exadata Infrastructures](#cloud-exadata-infrastructures)    
@@ -12,6 +12,8 @@
 1. [Cloud DB Homes](#cloud-db-homes)
 1. [Databases](#databases)
 1. [Pluggable Databases](#pluggable-databases)
+1. [Outputs](#outputs)
+1. [Updating from 1.1.0](#updating-from-110)
 1. [OCI Landing Zones Modules Collection](#modules-collection)
 1. [Contributing](#contributing)
 1. [License](#license)
@@ -21,8 +23,6 @@
 ## <a name="overview">Overview</a>
 This repository contains Terraform OCI (Oracle Cloud Infrastructure) modules for resources that help customers deploy and manage Exadata Database Service on Dedicated Infrastructure on OCI.
 
-Database Homes, container databases, and pluggable databases are implemented by the sibling [`common-database`](../common-database/README.md) module. This Exadata module preserves its existing inputs and outputs and composes that module with the Exadata infrastructure and VM clusters it creates.
-
 The following resources are available:
 
 - Exadata Infrastructure
@@ -30,6 +30,22 @@ The following resources are available:
 - Database Home
 - Container Database
 - Pluggable Database
+
+## Getting Started
+
+For a new deployment, start with the [Exadata quickstart](./examples/quickstart-for-deploying-exadata-database-service-on-dedicated-infrastructure/README.md). Additional examples cover [existing VM Clusters with DB Homes, CDBs, and PDBs](./examples/creating-additional-dbhomes-with-multiple-cdb-pdb/README.md) and multi-environment deployments.
+
+Use the released module source in a root module:
+
+```hcl
+module "exadata_database" {
+  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//exadata-database?ref=v1.2.0"
+
+  # Configure the inputs required by the selected deployment pattern.
+}
+```
+
+The complete input and output contract is in [SPEC.md](./SPEC.md).
 
 This module supports being passed an object containing references to OCIDs (Oracle Cloud IDs) that they may depend on. Every input attribute that expects an OCID (typically, attribute names ending in _id or _ids) can be given either a literal OCID or a reference (a key) to the OCID. While these OCIDs can be literally obtained from their sources and pasted when setting the modules input attributes, a superior approach is automatically consuming the outputs of producing modules. For instance, the Exadata Infrastructure module may depend on compartments and networks for deployment. It can be passed a compartments_dependency map and a network_dependency map with objects representing compartments and networks produced by other modules. The external dependency approach helps with the creation of loosely coupled Terraform configurations with clearly defined dependencies between them, avoiding copying and pasting OCIDs.
 
@@ -193,9 +209,11 @@ Each DB Home object has the following attributes:
 - source: The source of database: NONE for creating a new database. DB_BACKUP for creating a new database by restoring from a database backup. VM_CLUSTER_NEW for creating a database for VM Cluster.
 - vm_cluster_id: The OCID or key of the VM cluster.
 
-Container Databases are created with `databases_configuration`, referencing the DB Home by key or OCID. This keeps the module outputs normalized for multi-stack handoff. New configurations should use `databases_configuration` directly.
+New Container Databases are created with `databases_configuration`, referencing the DB Home by key or OCID. This standalone contract is the supported path for new same-stack and multi-stack deployments.
 
-For backward compatibility with 1.1.0, the deprecated DB Home inline database contract (`cloud_db_homes_configuration[*].database`) is still accepted and normalized internally into standalone CDB resources owned by this module. If the same legacy inline database key appears under multiple DB Homes, the normalized CDB resource/output key is scoped as `<db_home_key>.<database_key>` to avoid overwriting another CDB. For legacy inline restore configurations, `DB_BACKUP` is applied to the standalone CDB resource while the DB Home is normalized to the VM Cluster DB Home creation source. Legacy `source_encryption_key_location_details` supports only `provider_type` and `hsm_password`; `azure_encryption_key_id` is rejected because the standalone provider block does not expose it.
+#### Updating from 1.1.0
+
+Existing Exadata Database callers can upgrade to 1.2.0 while retaining their existing module configuration. For a version-only upgrade, run and review the first plan before applying it, and investigate any unexpected creation, replacement, or destruction of existing Exadata resources.
 
 These attributes are not updatable after initial resource creation
 - db_version
@@ -263,14 +281,14 @@ The modules in this collection are designed for flexibility, are straightforward
 Using these modules does not require a user extensive knowledge of Terraform or OCI resource types usage. Users declare a JSON object describing the OCI resources according to each module’s specification and minimal Terraform code to invoke the modules. The modules generate outputs that can be consumed by other modules as inputs, allowing for the creation of independently managed operational stacks to automate your entire OCI infrastructure.
 
 ## <a name="contributing">Contributing</a>
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## <a name="license">License</a>
 Copyright (c) 2025, Oracle and/or its affiliates.
 
 Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
-See [LICENSE](./LICENSE) for more details.
+See [LICENSE](../LICENSE.txt) for more details.
 
 ## <a name="known-issues">Known Issues</a>
 1.  The PDB creation might fail if the DB creation is in progress. solution: run "terraform apply" again and it will resume from where it left off.

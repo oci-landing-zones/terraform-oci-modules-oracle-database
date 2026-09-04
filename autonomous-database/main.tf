@@ -102,6 +102,19 @@ resource "oci_database_autonomous_database" "these" {
   }
 
   lifecycle {
+    # OCI returns these service-managed provenance tags through defined_tags.
+    # Do not make callers remove them while retaining management of all other
+    # defined tags.
+    ignore_changes = [
+      defined_tags["Oracle-Tags.CreatedBy"],
+      defined_tags["Oracle-Tags.CreatedOn"],
+      # OCI accepts an explicit endpoint IP during creation but does not
+      # reliably apply a later change to an existing Autonomous Database.
+      # Preserve the OCI-assigned IP for 1.1.0 upgrades and avoid a
+      # perpetual update plan.
+      private_endpoint_ip,
+    ]
+
     precondition {
       condition     = each.value.compartment_id != null && can(regex("^ocid1\\.compartment\\.", each.value.compartment_id))
       error_message = "compartment_id must be a compartment OCID or a key in compartments_dependency."

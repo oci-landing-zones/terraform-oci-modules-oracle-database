@@ -18,7 +18,7 @@ output "database_homes" {
 }
 
 output "databases" {
-  description = "The deployed Databases in the OCI Database Service."
+  description = "The deployed standalone Databases in the OCI Database Service."
   value       = var.enable_output ? module.common_database.databases : null
   sensitive   = true
 }

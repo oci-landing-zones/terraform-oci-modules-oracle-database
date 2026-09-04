@@ -90,8 +90,6 @@ variable "cloud_db_homes_configuration" {
     kms_key_version_id          = optional(string)
     source                      = optional(string, "VM_CLUSTER_NEW") # Valid values: "NONE", "DB_BACKUP", "VM_CLUSTER_NEW"
     vm_cluster_id               = optional(string)
-    # Deprecated v1.1.0 compatibility path. New configurations should use
-    # databases_configuration and reference the DB Home by key or OCID.
     database = optional(map(object({
       admin_password             = string
       backup_id                  = optional(string)
@@ -197,17 +195,6 @@ variable "cloud_db_homes_configuration" {
     error_message = "The tde wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
   }
 
-  validation {
-    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
-      for k, v in var.cloud_db_homes_configuration : [
-        for dk, dv in coalesce(v.database, {}) : [
-          for detail in values(coalesce(dv.source_encryption_key_location_details, {})) :
-          detail.azure_encryption_key_id == null
-        ]
-      ]
-    ]))
-    error_message = "The legacy inline source_encryption_key_location_details does not support azure_encryption_key_id because the standalone oci_database_database provider block only supports provider_type and hsm_password."
-  }
 }
 
 variable "databases_configuration" {

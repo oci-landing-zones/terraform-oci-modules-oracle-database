@@ -43,7 +43,7 @@ The module's complete structural types, defaults, and validations are defined in
 | Name | Description |
 | ---- | ----------- |
 | `database_homes` | Raw Database Home resources (sensitive). |
-| `databases` | Raw container database resources (sensitive). |
+| `databases` | Raw standalone container database resources (sensitive). |
 | `pluggable_databases` | Raw PDB resources (sensitive). |
 | `database_resources` | Minimal ID maps for dependency handoff. |
 | `database_dependency` | Alias of `database_resources`. |

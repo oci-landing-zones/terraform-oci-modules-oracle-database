@@ -7,7 +7,7 @@ data "oci_kms_vault" "these" {
 }
 
 data "oci_kms_key" "these" {
-  for_each            = { for k, v in var.autonomous_databases_configuration.databases : k => v.security.tde.existing_oci_encryption_key_id if try(v.is_dedicated, true) == false && try(v.security.tde.existing_oci_encryption_key_id, null) != null && try(v.security.tde.deploy_new_oci_encryption_key, false) == false && try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == true && local.tde_vault_ids[k] != null && (length(regexall("^ocid1.*$", v.security.tde.existing_oci_encryption_key_id)) > 0 || try(contains(keys(var.kms_dependency), v.security.tde.existing_oci_encryption_key_id), false)) }
+  for_each            = { for k, v in var.autonomous_databases_configuration.databases : k => try(v.security.tde.existing_oci_encryption_key_id, null) if try(v.is_dedicated, true) == false && try(v.security.tde.existing_oci_encryption_key_id, null) != null && try(v.security.tde.deploy_new_oci_encryption_key, false) == false && try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == true && local.tde_vault_ids[k] != null && (try(length(regexall("^ocid1.*$", v.security.tde.existing_oci_encryption_key_id)) > 0, false) || try(contains(keys(var.kms_dependency), v.security.tde.existing_oci_encryption_key_id), false)) }
   key_id              = length(regexall("^ocid1.*$", each.value)) > 0 ? each.value : var.kms_dependency[each.value].id
   management_endpoint = data.oci_kms_vault.these[each.key].management_endpoint
 }
@@ -25,9 +25,12 @@ locals {
 
   dynamic_groups_configuration = {
     dynamic_groups = { for k, v in local.db_configs : "${k}-DYNAMIC-GROUP" => {
-      name          = "${v.db_name}-dynamic-group",
-      description   = "Dynamic group for ${v.db_name} accessing Key Management service (aka Vault service).",
-      matching_rule = "ALL {resource.type = 'autonomousdatabase', resource.compartment.id = '${v.compartment_id}'}"
+      name        = "${v.db_name}-dynamic-group",
+      description = "Dynamic group for ${v.db_name} accessing Key Management service (aka Vault service).",
+      # Preserve the 1.1.0 rule so an in-place 1.1.0-to-1.2.0 upgrade does
+      # not modify an existing dynamic group. A tighter rule can be made an
+      # explicit future change.
+      matching_rule = "ALL {resource.compartment.id = '${v.compartment_id}'}"
     } if v.deploy_iam_policy_and_dyn_group_for_encryption_key }
   }
 

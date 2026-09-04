@@ -36,12 +36,11 @@ variable "autonomous_databases_configuration" {
       national_character_set      = optional(string) # Default is "AL16UTF16"
       backup_retention_in_days    = optional(number) # Retention period, in days, for long-term backups. For ADB-D, this is determined by the value set at Autonomous Container Database
       networking = optional(object({
-        whitelisted_ips                       = optional(list(string), []) # does not apply when private endpoint is enabled.
-        enable_private_endpoint               = optional(bool, false)
-        allow_public_access_without_whitelist = optional(bool, false)
-        private_endpoint_ip                   = optional(string)
-        subnet_id                             = optional(string)
-        network_security_groups               = optional(list(string), []) # Only applicable for Serverless, not applicable for Dedicated.
+        whitelisted_ips         = optional(list(string), []) # does not apply when private endpoint is enabled.
+        enable_private_endpoint = optional(bool, false)
+        private_endpoint_ip     = optional(string)
+        subnet_id               = optional(string)
+        network_security_groups = optional(list(string), []) # Only applicable for Serverless, not applicable for Dedicated.
       }))
       security = optional(object({
         # for ADB-D, tde configuration is inheritated from the autonomous container database
@@ -100,16 +99,6 @@ variable "autonomous_databases_configuration" {
       try(v.networking.enable_private_endpoint, false) == false || try(v.networking.subnet_id, null) != null
     ])
     error_message = "subnet_id is required when networking.enable_private_endpoint is true."
-  }
-  validation {
-    condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
-      for k, v in var.autonomous_databases_configuration.databases :
-      try(v.is_dedicated, true) == true ||
-      try(v.networking.enable_private_endpoint, false) == true ||
-      length(try(v.networking.whitelisted_ips, [])) > 0 ||
-      try(v.networking.allow_public_access_without_whitelist, false) == true
-    ])
-    error_message = "ADB Shared/Serverless must set networking.enable_private_endpoint=true, provide networking.whitelisted_ips, or explicitly set networking.allow_public_access_without_whitelist=true."
   }
   validation {
     condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([

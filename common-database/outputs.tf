@@ -8,7 +8,7 @@ output "database_homes" {
 }
 
 output "databases" {
-  description = "The deployed container databases."
+  description = "The deployed standalone container databases."
   value       = var.enable_output ? oci_database_database.these : null
   sensitive   = true
 }
@@ -20,9 +20,21 @@ output "pluggable_databases" {
 }
 
 locals {
+  legacy_inline_database_resources = {
+    for key, entry in local.legacy_cloud_db_home_database_configs :
+    key => {
+      id = oci_database_db_home.these[entry.dbhome_key].database[0].id
+    }
+  }
+
+  standalone_database_resources = {
+    for key, database in oci_database_database.these :
+    key => { id = database.id }
+  }
+
   database_resources = {
     database_homes      = { for k, v in oci_database_db_home.these : k => { id = v.id, compartment_id = try(v.compartment_id, null) } }
-    databases           = { for k, v in oci_database_database.these : k => { id = v.id } }
+    databases           = merge(local.legacy_inline_database_resources, local.standalone_database_resources)
     pluggable_databases = { for k, v in oci_database_pluggable_database.these : k => { id = v.id } }
   }
 }

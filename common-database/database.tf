@@ -5,78 +5,11 @@
 # - Uses a DB Home created by this Terraform stack (by key) or an explicitly provided DB Home OCID.
 
 locals {
-  legacy_database_defaults = {
-    admin_password                         = null
-    backup_id                              = null
-    backup_tde_password                    = null
-    character_set                          = null
-    database_admin_password                = null
-    database_id                            = null
-    database_software_image_id             = null
-    db_backup_config                       = null
-    db_name                                = null
-    db_unique_name                         = null
-    db_workload                            = null
-    defined_tags                           = null
-    encryption_key_location_details        = null
-    freeform_tags                          = null
-    is_active_data_guard_enabled           = null
-    key_store_id                           = null
-    kms_key_id                             = null
-    kms_key_version_id                     = null
-    ncharacter_set                         = null
-    pdb_name                               = null
-    pluggable_databases                    = null
-    protection_mode                        = null
-    sid_prefix                             = null
-    source_database_id                     = null
-    source_encryption_key_location_details = null
-    source_tde_wallet_password             = null
-    tde_wallet_password                    = null
-    time_stamp_for_point_in_time_recovery  = null
-    transport_type                         = null
-    vault_id                               = null
-  }
-
-  legacy_database_db_backup_config_defaults = {
-    auto_backup_enabled        = null
-    auto_backup_window         = null
-    auto_full_backup_day       = null
-    auto_full_backup_window    = null
-    backup_deletion_policy     = null
-    backup_destination_details = null
-    recovery_window_in_days    = null
-    run_immediate_full_backup  = null
-  }
-
-  legacy_database_backup_destination_details_defaults = {
-    dbrs_policy_id = null
-    id             = null
-    is_remote      = null
-    remote_region  = null
-    type           = null
-    vpc_password   = null
-    vpc_user       = null
-  }
-
-  legacy_database_encryption_key_location_details_defaults = {
-    provider_type           = null
-    azure_encryption_key_id = null
-    hsm_password            = null
-  }
-
   legacy_cloud_db_home_database_entries = flatten([
     for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : [
-      for database_key, database in coalesce(dbhome.database, {}) : {
-        dbhome_key         = dbhome_key
-        database_key       = database_key
-        database           = database
-        db_home_id         = dbhome_key
-        source             = database.backup_id == null ? "NONE" : "DB_BACKUP"
-        key_store_id       = database.key_store_id
-        db_version         = dbhome.db_version
-        kms_key_id         = database.kms_key_id
-        kms_key_version_id = database.kms_key_version_id
+      for database_key, _database in coalesce(dbhome.database, {}) : {
+        dbhome_key   = dbhome_key
+        database_key = database_key
       }
     ]
   ])
@@ -91,58 +24,21 @@ locals {
     local.legacy_cloud_db_home_database_key_counts[entry.database_key] == 1 ? entry.database_key : "${entry.dbhome_key}.${entry.database_key}" => entry
   }
 
-  legacy_database_db_backup_configs = {
-    for key, db in local.legacy_cloud_db_home_database_configs :
-    key => try(values(db.database.db_backup_config)[0], null)
-  }
-
-  legacy_database_backup_destination_details = {
-    for key, db_backup_config in local.legacy_database_db_backup_configs :
-    key => try(values(db_backup_config.backup_destination_details)[0], null)
-  }
-
-  legacy_database_encryption_key_location_details = {
-    for key, db in local.legacy_cloud_db_home_database_configs :
-    key => try(values(db.database.encryption_key_location_details)[0], null)
-  }
-
-  legacy_database_source_encryption_key_location_details = {
-    for key, db in local.legacy_cloud_db_home_database_configs :
-    key => try(values(db.database.source_encryption_key_location_details)[0], null)
-  }
-
-  legacy_cloud_db_home_databases = {
-    for key, db in local.legacy_cloud_db_home_database_configs :
-    key => merge(db, {
-      database = merge(local.legacy_database_defaults, db.database, {
-        db_backup_config = local.legacy_database_db_backup_configs[key] == null ? null : merge(local.legacy_database_db_backup_config_defaults, local.legacy_database_db_backup_configs[key], {
-          backup_destination_details = local.legacy_database_backup_destination_details[key] == null ? null : merge(local.legacy_database_backup_destination_details_defaults, local.legacy_database_backup_destination_details[key])
-        })
-        encryption_key_location_details = local.legacy_database_encryption_key_location_details[key] == null ? null : merge(local.legacy_database_encryption_key_location_details_defaults, local.legacy_database_encryption_key_location_details[key])
-        source_encryption_key_location_details = local.legacy_database_source_encryption_key_location_details[key] == null ? null : merge(
-          local.legacy_database_encryption_key_location_details_defaults,
-          local.legacy_database_source_encryption_key_location_details[key]
-        )
-      })
-    })
-  }
-
   explicit_databases_configuration      = coalesce(var.databases_configuration, {})
-  database_configuration_key_collisions = setintersection(toset(keys(local.legacy_cloud_db_home_databases)), toset(keys(local.explicit_databases_configuration)))
-  effective_databases_configuration     = merge(local.legacy_cloud_db_home_databases, local.explicit_databases_configuration)
+  database_configuration_key_collisions = setintersection(toset(keys(local.legacy_cloud_db_home_database_configs)), toset(keys(local.explicit_databases_configuration)))
 
   database_key_store_ids = {
-    for key, db in local.effective_databases_configuration :
+    for key, db in local.explicit_databases_configuration :
     key => try(coalesce(try(db.key_store_id, null), try(db.database.key_store_id, null)), null)
   }
 
   database_kms_key_ids = {
-    for key, db in local.effective_databases_configuration :
+    for key, db in local.explicit_databases_configuration :
     key => try(coalesce(try(db.kms_key_id, null), try(db.database.kms_key_id, null)), null)
   }
 
   database_kms_key_version_ids = {
-    for key, db in local.effective_databases_configuration :
+    for key, db in local.explicit_databases_configuration :
     key => try(coalesce(try(db.kms_key_version_id, null), try(db.database.kms_key_version_id, null)), null)
   }
 
@@ -152,7 +48,7 @@ locals {
   )
 
   database_dbrs_policy_ids = {
-    for key, db in local.effective_databases_configuration :
+    for key, db in local.explicit_databases_configuration :
     key => try(db.database.db_backup_config.backup_destination_details.dbrs_policy_id, null)
   }
 
@@ -167,7 +63,7 @@ locals {
 
   # Resolve references and defaults for database creation
   databases = {
-    for key, db in local.effective_databases_configuration :
+    for key, db in local.explicit_databases_configuration :
     key => merge(db, {
       # Resolve DB Home: use as-is if OCID, or reference created DB Home by key
       db_home_id_input         = db.db_home_id
@@ -304,11 +200,13 @@ resource "oci_database_database" "these" {
     }
 
     ignore_changes = [
-      # Ignore changes to the following attributes after creation
-      # These attributes are managed outside of Terraform and should not trigger updates
+      # Ignore changes to the following attributes after creation.
+      # These attributes are managed outside Terraform or should not trigger updates.
       db_home_id,
       db_version,
       database.0.admin_password,
+      database.0.source_tde_wallet_password,
+      database.0.tde_wallet_password,
       database.0.defined_tags
     ]
   }

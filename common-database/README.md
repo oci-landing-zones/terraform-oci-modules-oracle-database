@@ -10,7 +10,7 @@ Resource references accept either literal OCIDs or logical keys from dependency 
 
 ```hcl
 module "common_database" {
-  source = "../common-database"
+  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//common-database?ref=v1.2.0"
 
   vm_cluster_dependency = {
     primary = {
@@ -54,7 +54,7 @@ For a DB System target, replace `vm_cluster_dependency` and `vm_cluster_id` with
 
 ## Inputs
 
-- `cloud_db_homes_configuration`: DB Homes to create. Existing inline `database` entries remain supported for compatibility, but new configurations should use `databases_configuration`.
+- `cloud_db_homes_configuration`: DB Homes to create.
 - `databases_configuration`: Container databases to create. `db_home_id` accepts a local DB Home key, a key from `database_dependency.database_homes`, or a DB Home OCID.
 - `pluggable_databases_configuration`: Additional PDBs to create. `container_database_id` accepts a local database key, a key from `database_dependency.databases`, or a database OCID.
 - `database_dependency`: External DB Homes, databases, and PDBs used by logical key.
@@ -72,7 +72,3 @@ The complete typed configuration contract and validation rules are declared in [
 - `database_homes`, `databases`, and `pluggable_databases`: Raw resource maps. These outputs are sensitive.
 - `database_resources`: Minimal ID-only maps intended for dependency handoff.
 - `database_dependency`: Alias of `database_resources` for direct downstream consumption.
-
-## Upgrade from `exadata-database`
-
-Existing callers do not need to change their Exadata module inputs. The Exadata wrapper passes its VM clusters and external dependencies to this module and keeps the prior outputs. The wrapper also contains `moved` blocks that migrate the three resource collections to their new child-module addresses. Review the first plan after upgrading; it should show address moves rather than destroy/create actions for unchanged resources.
