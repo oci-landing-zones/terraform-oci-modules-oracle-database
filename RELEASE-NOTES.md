@@ -3,9 +3,9 @@
 ## Updates
 1. Added Exadata Database dependency output for OCI Landing Zones Orchestrator consumption.
 2. Added cross-stack Exadata Database dependency support for Exadata infrastructures, VM clusters, DB homes, databases, and pluggable databases.
-3. Added KMS dependency support for Exadata Database encryption key references.
+3. Added KMS dependency support for DB Home and standalone CDB encryption key references.
 4. Added external PDB lookup support for PDB clone source references.
-5. Fixed optional customer contacts, VM cluster compartment fallback, defined tags defaulting, CDB defined tags drift, null DB server lists, VM cluster subscription lookup, nested database KMS lookup, PDB password sensitivity handling, and sensitive raw database outputs.
+5. Fixed optional customer contacts, VM cluster compartment fallback, defined tags defaulting, CDB OCI provenance tag drift, null DB server lists, VM cluster subscription lookup, standalone CDB KMS lookup, PDB password sensitivity handling, and sensitive raw database outputs.
 6. Added Autonomous Database dependency output for OCI Landing Zones Orchestrator consumption.
 7. Added vault dependency support for Autonomous Database TDE vault references.
 8. Updated the Autonomous Database provider alias declaration for Orchestrator module invocation.
@@ -16,10 +16,12 @@
 13. Fixed Autonomous Database Dedicated handling so serverless TDE vault/key data sources are not read when TDE is inherited from an existing Autonomous Container Database.
 14. Added Exadata X11MV support for infrastructure shape `Exadata.X11MV`, database server type `X11MV`, and storage server type `X11MV-HC`.
 15. Made the fallback Exadata Availability Domain selection deterministic when `availability_domain` is omitted.
-16. Added the Autonomous Recovery Service module for recovery service subnets, protection policies, and protected databases, with optional NSGs and IAM policy creation. Exadata Database supports DBRS handoff through `recovery_service_dependency`.
+16. Added the Autonomous Recovery Service module for recovery service subnets, protection policies, and protected databases, with optional NSGs and IAM policy creation. Exadata Database supports DBRS handoff for standalone CDBs through `recovery_service_dependency`.
 17. Added Exadata Database protection policy resolution for direct and wrapped dependency maps, literal OCID passthrough, standalone database integration, and explicit rejection of unresolved protection policy keys.
 18. Added logical-key dependencies for externally managed VM clusters and DB systems.
 19. Marked standalone CDB backup TDE passwords as sensitive and ignored OCI provenance tags without suppressing customer tag management.
+20. Fixed Exadata Infrastructure default maintenance windows so `custom_action_timeout_in_mins`, `is_custom_action_timeout_enabled`, `is_monthly_patching_enabled`, and `patching_mode` are passed to OCI instead of being discarded during input type conversion.
+21. Fixed Exadata Infrastructure and Cloud VM Cluster compartment resolution so a tenancy OCID can be used to provision resources in the root compartment, whether supplied directly, through `default_compartment_id`, or through `compartments_dependency`.
 
 ## Upgrade from 1.1.0
 
@@ -30,6 +32,8 @@
 5. Exadata Database validates standalone CDB/PDB inputs earlier, including CDB names with special characters, `OBJECT_STORAGE` backup destination spelling, unsupported standalone source encryption fields, and DB Home OCIDs used as PDB container database IDs.
 6. Due to a 1.1.0 bug, `networking.private_endpoint_ip` was accepted but was not passed to OCI. In 1.2.0, the value is passed when creating a new ADB Shared / Serverless private endpoint. OCI does not reliably apply a later IP change to an existing ADB; to keep 1.1.0-to-1.2.0 upgrades convergent, the module retains the OCI-assigned IP of an existing endpoint. Select the required IP when creating a new ADB.
 7. Standalone CDB `database.backup_tde_password` is now sensitive. It is a `DB_BACKUP` creation-time credential and is not reapplied to an existing CDB.
+8. In 1.1.0, the four advanced fields listed above were accepted inside `default_maintenance_window` but silently discarded. In 1.2.0, an existing infrastructure whose unchanged configuration already contains those fields can show an in-place maintenance-window update that applies the declared values. Review that update before applying; configurations that omit the fields do not receive new defaults.
+9. Logical-key resolution through `kms_dependency` and `recovery_service_dependency` applies to new standalone CDBs declared in `databases_configuration`. The deprecated inline `cloud_db_homes_configuration[*].database` path is retained unchanged for zero-touch 1.1.0 upgrades and continues to require literal OCIDs for its nested `kms_key_id` and `dbrs_policy_id` values.
 
 # Jan 29, 2026 Release Notes - 1.1.0
 ### Module Added

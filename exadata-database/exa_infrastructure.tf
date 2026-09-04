@@ -11,10 +11,10 @@ locals {
     infra_key => merge(infra, {
       compartment_id_input = infra.compartment_id != null ? infra.compartment_id : var.default_compartment_id
       compartment_id = infra.compartment_id != null ? (
-        can(regex("^ocid1\\.compartment", infra.compartment_id)) ? infra.compartment_id : try(var.compartments_dependency[infra.compartment_id].id, null)
+        can(regex("^ocid1\\.(compartment|tenancy)\\.", infra.compartment_id)) ? infra.compartment_id : try(var.compartments_dependency[infra.compartment_id].id, null)
         ) : (
         var.default_compartment_id != null ? (
-          can(regex("^ocid1\\.compartment", var.default_compartment_id)) ? var.default_compartment_id : try(var.compartments_dependency[var.default_compartment_id].id, null)
+          can(regex("^ocid1\\.(compartment|tenancy)\\.", var.default_compartment_id)) ? var.default_compartment_id : try(var.compartments_dependency[var.default_compartment_id].id, null)
         ) : null
       )
       subscription_id_input = infra.subscription_id
@@ -85,8 +85,8 @@ resource "oci_database_cloud_exadata_infrastructure" "these" {
 
   lifecycle {
     precondition {
-      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.compartment\\.", each.value.compartment_id))
-      error_message = "compartment_id must be a compartment OCID or a key in compartments_dependency."
+      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.(compartment|tenancy)\\.", each.value.compartment_id))
+      error_message = "compartment_id must be a compartment OCID, the tenancy OCID for the root compartment, or a key in compartments_dependency."
     }
 
     precondition {

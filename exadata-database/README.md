@@ -103,7 +103,7 @@ The module accepts the following input variables:
 - kms_dependency: A map of objects containing externally managed encryption keys this module may depend on.
 - network_dependency: A map of objects containing the externally managed network resources this module may depend on.
 - recovery_service_dependency: A map of externally managed Autonomous Recovery Service protection policies this module may depend on. Pass either the ARS module `protection_policies` output directly, or an object containing a `protection_policies` map.
-- default_compartment_id: Default Compartment ID for all resources.
+- default_compartment_id: Default compartment OCID, tenancy OCID for the root compartment, or `compartments_dependency` key for all resources.
 - default_defined_tags: Default defined tags for all resources.
 - default_freeform_tags: Default freeform tags for all resources.
 
@@ -121,14 +121,14 @@ For PDB clone operations, `pdb_creation_type_details.source_pluggable_database_i
 
 ### <a name="cloud-exadata-infrastructures">Cloud Exadata Infrastructures</a>
 - cloud_exadata_infrastructures_configuration: Exadata infrastructure configuration. This is an object with the following attributes:
-  - default_maintenance_window: Default maintenance window configuration.
+  - default_maintenance_window: Default maintenance window configuration. It supports `custom_action_timeout_in_mins`, `days_of_week`, `hours_of_day`, `is_custom_action_timeout_enabled`, `is_monthly_patching_enabled`, `lead_time_in_weeks`, `months`, `patching_mode`, `preference`, and `weeks_of_month`.
   - cloud_exadata_infrastructures: A map of Exadata infrastructure configurations.
 
 Each Exadata infrastructure configuration object has the following attributes:
 
 - display_name: Display name of the Exadata infrastructure.
 - shape: Shape of the Exadata infrastructure. Accepted values are Exadata.X11MV, Exadata.X11M, Exadata.X9M, and Exadata.X8M.
-- compartment_id: Compartment ID of the Exadata infrastructure. Overrides default compartment ID.
+- compartment_id: Compartment OCID, tenancy OCID for the root compartment, or `compartments_dependency` key for the Exadata infrastructure. Overrides the default compartment ID.
 - availability_domain: Availability domain of the Exadata infrastructure. When omitted, the module selects the lexicographically first name from the availability domains discovered for the resolved compartment.
 - compute_count: Compute count of the Exadata infrastructure.
 - customer_contacts: Customer contact information.
@@ -151,7 +151,7 @@ For more details on this resource, please see OCI Terraform Documentation for [o
 Each Cloud VM cluster configuration object has the following attributes:
 - backup_subnet_id: Backup subnet ID of the VM cluster.
 - exadata_infrastructure_id: Exadata infrastructure ID of the VM cluster.
-- compartment_id: Compartment ID of the VM cluster. Overrides default compartment ID.
+- compartment_id: Compartment OCID, tenancy OCID for the root compartment, or `compartments_dependency` key for the VM cluster. Overrides the default compartment ID.
 - cpu_core_count: CPU core count of the VM cluster.
 - display_name: Display name of the VM cluster.
 - gi_version: GI version of the VM cluster.
@@ -218,6 +218,8 @@ New Container Databases are created with `databases_configuration`, referencing 
 
 Existing Exadata Database callers can upgrade to 1.2.0 while retaining their existing module configuration. For a version-only upgrade, run and review the first plan before applying it, and investigate any unexpected creation, replacement, or destruction of existing Exadata resources.
 
+Exadata Database 1.1.0 accepted `custom_action_timeout_in_mins`, `is_custom_action_timeout_enabled`, `is_monthly_patching_enabled`, and `patching_mode` inside `default_maintenance_window`, but discarded them during input type conversion. Version 1.2.0 passes those declared values to OCI. If an unchanged 1.1.0 configuration already contains them, the upgrade plan can include an in-place maintenance-window update. Configurations that omit them do not receive new defaults.
+
 The module does not manage later changes to DB Home software version or image. OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; other defined tags and freeform tags remain managed. In the legacy inline CDB configuration, administration, backup TDE, and TDE wallet passwords are sensitive creation-time values.
 - db_version
 - database_software_image_id
@@ -241,7 +243,20 @@ Each Database Configuration object has the following attributes:
 
 `database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later.
 
-The module does not manage later changes to `db_home_id`, `db_version`, or those creation-time credentials. Keeping `db_home_id` unchanged allows an out-of-place DB Home patch to remain in place. OCI provenance tags are ignored; other defined tags and freeform tags remain managed.
+The module does not manage later changes to `db_home_id`, `db_version`, or those creation-time credentials. Keeping `db_home_id` unchanged allows an out-of-place DB Home patch to remain in place. The OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; other defined tags and freeform tags remain managed.
+
+OCI tag defaults can add tenancy-specific defined tags when a CDB is created. To manage one of those tags with Terraform, declare its key and value in `default_defined_tags` or `database.defined_tags`. Direct module callers that intentionally do not want Terraform to manage a particular tag can add its fully qualified key to the OCI provider's `ignore_defined_tags` setting:
+
+```hcl
+provider "oci" {
+  # Authentication and region settings omitted.
+  ignore_defined_tags = [
+    "Default_Tags.AutoStop",
+  ]
+}
+```
+
+Do not ignore the complete `database.defined_tags` map: doing so would also hide changes to tags the customer expects Terraform to manage. OCI Landing Zones Orchestrator callers should keep tenancy tag defaults in the workload configuration; changing the Orchestrator provider-wide ignore list affects every resource that uses that provider.
 
 For more details on this resource, please see OCI Terraform Documentation for [oci_database_database](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/7.20.0/docs/r/database_database.html)
 

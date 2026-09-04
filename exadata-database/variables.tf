@@ -80,7 +80,7 @@ variable "recovery_service_dependency" {
 }
 
 variable "default_compartment_id" {
-  description = "Default Compartment ID for all resources."
+  description = "Default compartment OCID, tenancy OCID for the root compartment, or compartments_dependency key for all resources."
   type        = string
   default     = null
 }
@@ -102,10 +102,14 @@ variable "cloud_exadata_infrastructures_configuration" {
   default     = null
   type = object({
     default_maintenance_window = optional(object({
-      preference     = optional(string, "NO_PREFERENCE") # e.g., "NO_PREFERENCE"
-      months         = optional(list(string))
-      weeks_of_month = optional(list(number))
-      days_of_week   = optional(list(string))
+      custom_action_timeout_in_mins    = optional(number)
+      is_custom_action_timeout_enabled = optional(bool)
+      is_monthly_patching_enabled      = optional(bool)
+      patching_mode                    = optional(string)
+      preference                       = optional(string, "NO_PREFERENCE") # e.g., "NO_PREFERENCE"
+      months                           = optional(list(string))
+      weeks_of_month                   = optional(list(number))
+      days_of_week                     = optional(list(string))
       # The window of hours during the day when maintenance should be performed. The window is a 4 hour slot. 
       # Valid values are 0 - represents time slot 0:00 - 3:59 UTC - 4 - represents time slot 4:00 - 7:59 UTC - 
       # 8 - represents time slot 8:00 - 11:59 UTC - 12 - represents time slot 12:00 - 15:59 UTC - 
@@ -118,7 +122,7 @@ variable "cloud_exadata_infrastructures_configuration" {
       # Attributes for oci_database_cloud_exadata_infrastructure (from https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_exadata_infrastructure)
       display_name        = string
       shape               = string           # Possible values: Exadata.X11MV, Exadata.X11M, Exadata.X9M, Exadata.X8M
-      compartment_id      = optional(string) # Overrides default; literal OCID or key in compartments_dependency
+      compartment_id      = optional(string) # Overrides default; compartment/tenancy OCID or key in compartments_dependency
       availability_domain = optional(string) # Defaults to the lexicographically first discovered AD.
 
       compute_count = optional(number)
@@ -183,7 +187,7 @@ variable "cloud_vm_clusters_configuration" {
     backup_subnet_id = string # Literal OCID or key in network_dependency
 
     exadata_infrastructure_id = optional(string) # OCID or key of the database cloud exadata infrastructure.
-    compartment_id            = optional(string) # Overrides default; literal OCID or key in compartments_dependency
+    compartment_id            = optional(string) # Overrides default; compartment/tenancy OCID or key in compartments_dependency
     cpu_core_count            = number
     display_name              = string
     gi_version                = string # e.g., "19.0.0.0"

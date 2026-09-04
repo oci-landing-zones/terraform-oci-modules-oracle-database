@@ -88,7 +88,9 @@ The module does not manage later DB Home software version or image changes. OCI 
 
 Each `databases_configuration` entry creates a standalone CDB. Its `db_home_id` accepts a Database Home key created in this module, a key from `database_dependency.database_homes`, or a DB Home OCID. The `source` attribute supports `NONE`, `DB_BACKUP`, and `DATAGUARD`; the module validates source-specific required inputs before creation.
 
-`database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. In particular, `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later. The module does not manage later CDB DB Home changes, which allows an out-of-place DB Home patch to remain in place. OCI provenance tags are ignored; customer-defined and freeform tags remain managed.
+`database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. In particular, `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later. The module does not manage later CDB DB Home changes, which allows an out-of-place DB Home patch to remain in place. The OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; customer-defined and freeform tags remain managed.
+
+OCI tag defaults can add tenancy-specific defined tags when a CDB is created. Declare those tags in `default_defined_tags` or `database.defined_tags` when Terraform should manage them. Direct callers can instead list selected fully qualified keys in the OCI provider's `ignore_defined_tags` setting when Terraform should intentionally ignore them. Do not ignore the complete `database.defined_tags` map, because that would also hide customer-managed tag changes.
 
 ### <a name="pluggable-databases">Pluggable Databases</a>
 

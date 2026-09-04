@@ -6,7 +6,7 @@ locals {
   cloud_exadata_infrastructures_dependency = coalesce(try(var.exadata_database_dependency.cloud_exadata_infrastructures, null), {})
   compartments_dependency_input            = var.compartments_dependency != null ? var.compartments_dependency : {}
   default_compartment_id_resolves = var.default_compartment_id != null ? (
-    can(regex("^ocid1\\.compartment", var.default_compartment_id)) ||
+    can(regex("^ocid1\\.(compartment|tenancy)\\.", var.default_compartment_id)) ||
     contains(keys(local.compartments_dependency_input), var.default_compartment_id)
   ) : false
 
@@ -14,8 +14,8 @@ locals {
     subscription_id_input = vm.subscription_id
     exadata_infra_id      = can(regex("^ocid1\\.cloudexadatainfrastructure.", vm.exadata_infrastructure_id)) ? vm.exadata_infrastructure_id : try(oci_database_cloud_exadata_infrastructure.these[vm.exadata_infrastructure_id].id, var.exadata_database_dependency.cloud_exadata_infrastructures[vm.exadata_infrastructure_id].id, null)
     compartment_id = vm.compartment_id != null ? (
-      can(regex("^ocid1\\.compartment", vm.compartment_id)) ? vm.compartment_id : try(var.compartments_dependency[vm.compartment_id].id, null)) : try(coalesce(try(oci_database_cloud_exadata_infrastructure.these[vm.exadata_infrastructure_id].compartment_id, null), try(var.exadata_database_dependency.cloud_exadata_infrastructures[vm.exadata_infrastructure_id].compartment_id, null), (
-        can(regex("^ocid1\\.compartment", var.default_compartment_id)) ? var.default_compartment_id : try(var.compartments_dependency[var.default_compartment_id].id, null)
+      can(regex("^ocid1\\.(compartment|tenancy)\\.", vm.compartment_id)) ? vm.compartment_id : try(var.compartments_dependency[vm.compartment_id].id, null)) : try(coalesce(try(oci_database_cloud_exadata_infrastructure.these[vm.exadata_infrastructure_id].compartment_id, null), try(var.exadata_database_dependency.cloud_exadata_infrastructures[vm.exadata_infrastructure_id].compartment_id, null), (
+        can(regex("^ocid1\\.(compartment|tenancy)\\.", var.default_compartment_id)) ? var.default_compartment_id : try(var.compartments_dependency[var.default_compartment_id].id, null)
     )), null)
 
     subnet_id              = can(regex("^ocid1\\.subnet", vm.subnet_id)) ? vm.subnet_id : try(var.network_dependency.subnets[vm.subnet_id].id, null)
@@ -33,13 +33,13 @@ locals {
       contains(keys(local.cloud_exadata_infrastructures_input), vm.exadata_infrastructure_id) ||
       contains(keys(local.cloud_exadata_infrastructures_dependency), vm.exadata_infrastructure_id)
       ) && (vm.compartment_id != null ? (
-        can(regex("^ocid1\\.compartment", vm.compartment_id)) ||
+        can(regex("^ocid1\\.(compartment|tenancy)\\.", vm.compartment_id)) ||
         contains(keys(local.compartments_dependency_input), vm.compartment_id)
         ) : (try(local.cloud_exadata_infrastructures_input[vm.exadata_infrastructure_id].compartment_id, null) != null ? (
-          can(regex("^ocid1\\.compartment", local.cloud_exadata_infrastructures_input[vm.exadata_infrastructure_id].compartment_id)) ||
+          can(regex("^ocid1\\.(compartment|tenancy)\\.", local.cloud_exadata_infrastructures_input[vm.exadata_infrastructure_id].compartment_id)) ||
           contains(keys(local.compartments_dependency_input), local.cloud_exadata_infrastructures_input[vm.exadata_infrastructure_id].compartment_id)
           ) : (
-          try(local.cloud_exadata_infrastructures_dependency[vm.exadata_infrastructure_id].compartment_id, null) != null ? can(regex("^ocid1\\.compartment", local.cloud_exadata_infrastructures_dependency[vm.exadata_infrastructure_id].compartment_id)) : local.default_compartment_id_resolves
+          try(local.cloud_exadata_infrastructures_dependency[vm.exadata_infrastructure_id].compartment_id, null) != null ? can(regex("^ocid1\\.(compartment|tenancy)\\.", local.cloud_exadata_infrastructures_dependency[vm.exadata_infrastructure_id].compartment_id)) : local.default_compartment_id_resolves
         )
       )
     )
@@ -139,8 +139,8 @@ resource "oci_database_cloud_vm_cluster" "these" {
     }
 
     precondition {
-      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.compartment\\.", each.value.compartment_id))
-      error_message = "compartment_id must be a compartment OCID or a key in compartments_dependency."
+      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.(compartment|tenancy)\\.", each.value.compartment_id))
+      error_message = "compartment_id must be a compartment OCID, the tenancy OCID for the root compartment, or a key in compartments_dependency."
     }
 
     precondition {
