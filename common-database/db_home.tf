@@ -137,7 +137,11 @@ resource "oci_database_db_home" "these" {
       database_software_image_id,
       database.0.admin_password,
       database.0.backup_tde_password,
-      database.0.tde_wallet_password
+      database.0.tde_wallet_password,
+      defined_tags["Oracle-Tags.CreatedBy"],
+      defined_tags["Oracle-Tags.CreatedOn"],
+      database.0.defined_tags["Oracle-Tags.CreatedBy"],
+      database.0.defined_tags["Oracle-Tags.CreatedOn"]
     ]
   }
 }

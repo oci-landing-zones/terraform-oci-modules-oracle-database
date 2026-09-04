@@ -1,74 +1,128 @@
 # OCI Landing Zones Common Database Module
 
-## Overview
+![Landing Zone logo](../landing_zone_300.png)
 
-This module creates OCI Database Homes, container databases (CDBs), and pluggable databases (PDBs). It is independent of the infrastructure module that creates the target VM cluster or DB system, so it can be composed with `exadata-database` or with external database infrastructure modules.
+This module manages OCI Database Homes, Container Databases (CDBs), and Pluggable Databases (PDBs). Use it when the target Cloud VM Cluster or DB System already exists and is managed by another stack or module. It does not create Cloud Exadata Infrastructure, Cloud VM Clusters, or DB Systems.
 
-Resource references accept either literal OCIDs or logical keys from dependency inputs. A DB Home can target a Cloud VM Cluster with `vm_cluster_id` and `vm_cluster_dependency`, or a DB System with `db_system_id` and `db_system_dependency`. Only one target can be configured for a DB Home.
+Resource references accept literal OCIDs or logical keys resolved through dependency inputs. The module can target either a Cloud VM Cluster or a DB System; each DB Home must select exactly one target.
 
-## Usage
+Check [module specification](./SPEC.md) for the complete typed contract, managed resources, and outputs. Check the [examples](./examples/) folder for module usage.
+
+- [Features](#features)
+- [Requirements](#requirements)
+- [How to Invoke the Module](#invoke)
+- [Module Functioning](#functioning)
+  - [Database Homes](#database-homes)
+  - [Container Databases](#container-databases)
+  - [Pluggable Databases](#pluggable-databases)
+  - [External Dependencies](#external-dependencies)
+  - [Outputs](#outputs)
+- [Related Documentation](#related)
+- [Known Issues](#issues)
+
+## <a name="features">Features</a>
+
+The module supports:
+
+- Database Homes on existing Cloud VM Clusters or DB Systems.
+- Standalone Container Databases and additional Pluggable Databases.
+- Logical-key or literal-OCID references to locally managed and external DB Homes, CDBs, PDBs, VM Clusters, DB Systems, KMS keys, and Recovery Service protection policies.
+- Default and per-resource defined and freeform tags.
+- Sensitive raw resource outputs and minimal ID-only dependency outputs for downstream stacks.
+
+## <a name="requirements">Requirements</a>
+
+### Terraform version >= 1.3.0
+
+The module requires Terraform 1.3.0 or later and the default `oci` provider configuration. The identity applying the module needs OCI permissions to manage the selected Database Service resources and to use the referenced VM Cluster, DB System, encryption keys, and Recovery Service protection policies.
+
+## <a name="invoke">How to Invoke the Module</a>
+
+Terraform modules can be invoked locally or remotely.
+
+For local use, set `source` to the module path:
+
+```hcl
+module "common_database" {
+  source = "../common-database"
+
+  cloud_db_homes_configuration      = var.cloud_db_homes_configuration
+  databases_configuration           = var.databases_configuration
+  pluggable_databases_configuration = var.pluggable_databases_configuration
+  vm_cluster_dependency             = var.vm_cluster_dependency
+}
+```
+
+For remote use, refer to this module directory in the repository:
 
 ```hcl
 module "common_database" {
   source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//common-database?ref=v1.2.0"
 
-  vm_cluster_dependency = {
-    primary = {
-      id = module.database_infrastructure.vm_cluster_id
-    }
-  }
-
-  cloud_db_homes_configuration = {
-    home = {
-      display_name  = "DB-HOME-1"
-      db_version    = "19.0.0.0"
-      source        = "VM_CLUSTER_NEW"
-      vm_cluster_id = "primary"
-    }
-  }
-
-  databases_configuration = {
-    cdb = {
-      source     = "NONE"
-      db_home_id = "home"
-      database = {
-        admin_password = var.database_admin_password
-        db_name        = "CDB1"
-        pdb_name       = "PDB1"
-      }
-    }
-  }
-
-  pluggable_databases_configuration = {
-    reporting = {
-      container_database_id = "cdb"
-      pdb_name              = "REPORTING"
-      pdb_admin_password    = var.pdb_admin_password
-      tde_wallet_password   = var.tde_wallet_password
-    }
-  }
+  cloud_db_homes_configuration      = var.cloud_db_homes_configuration
+  databases_configuration           = var.databases_configuration
+  pluggable_databases_configuration = var.pluggable_databases_configuration
+  vm_cluster_dependency             = var.vm_cluster_dependency
 }
 ```
 
-For a DB System target, replace `vm_cluster_dependency` and `vm_cluster_id` with `db_system_dependency` and `db_system_id` respectively, and select the OCI-supported DB Home `source` for that target.
+For a DB System target, use `db_system_dependency` and `db_system_id` instead of `vm_cluster_dependency` and `vm_cluster_id`, and select the OCI-supported DB Home `source` for that target.
 
-## Inputs
+## <a name="functioning">Module Functioning</a>
 
-- `cloud_db_homes_configuration`: DB Homes to create.
-- `databases_configuration`: Container databases to create. `db_home_id` accepts a local DB Home key, a key from `database_dependency.database_homes`, or a DB Home OCID.
-- `pluggable_databases_configuration`: Additional PDBs to create. `container_database_id` accepts a local database key, a key from `database_dependency.databases`, or a database OCID.
-- `database_dependency`: External DB Homes, databases, and PDBs used by logical key.
-- `vm_cluster_dependency`: External Cloud VM Clusters used by logical key.
-- `db_system_dependency`: External DB Systems used by logical key.
-- `kms_dependency`: External KMS keys used by logical key.
-- `recovery_service_dependency`: External Recovery Service protection policies, either as a direct map or under `protection_policies`.
-- `default_defined_tags` and `default_freeform_tags`: Default tags for created resources.
-- `enable_output`: Enables module outputs. Defaults to `true`.
+The module manages three optional configuration maps. Map keys identify resources and can be used by later entries in the same stack.
 
-The complete typed configuration contract and validation rules are declared in [`variables.tf`](./variables.tf).
+- `cloud_db_homes_configuration`: Database Homes to create.
+- `databases_configuration`: Container Databases to create.
+- `pluggable_databases_configuration`: Additional PDBs to create.
 
-## Outputs
+### <a name="database-homes">Database Homes</a>
 
-- `database_homes`, `databases`, and `pluggable_databases`: Raw resource maps. These outputs are sensitive.
-- `database_resources`: Minimal ID-only maps intended for dependency handoff.
-- `database_dependency`: Alias of `database_resources` for direct downstream consumption.
+Each Database Home selects one target: `vm_cluster_id` for a Cloud VM Cluster or `db_system_id` for a DB System. The target can be a literal OCID or a key from `vm_cluster_dependency` or `db_system_dependency`. A Database Home cannot target both.
+
+The legacy inline `cloud_db_homes_configuration[*].database` block is retained only for Exadata Database 1.1.0 upgrade compatibility. New CDB configurations must use `databases_configuration`.
+
+The module does not manage later DB Home software version or image changes. OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored on the DB Home and its legacy inline CDB; other defined tags and all freeform tags remain managed by Terraform. Administration, backup TDE, and TDE wallet passwords in the legacy inline CDB are sensitive creation-time values.
+
+### <a name="container-databases">Container Databases</a>
+
+Each `databases_configuration` entry creates a standalone CDB. Its `db_home_id` accepts a Database Home key created in this module, a key from `database_dependency.database_homes`, or a DB Home OCID. The `source` attribute supports `NONE`, `DB_BACKUP`, and `DATAGUARD`; the module validates source-specific required inputs before creation.
+
+`database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. In particular, `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later. The module does not manage later CDB DB Home changes, which allows an out-of-place DB Home patch to remain in place. OCI provenance tags are ignored; customer-defined and freeform tags remain managed.
+
+### <a name="pluggable-databases">Pluggable Databases</a>
+
+Each `pluggable_databases_configuration` entry creates a PDB. Its `container_database_id` accepts a CDB key created in this module, a key from `database_dependency.databases`, or a CDB OCID. Changes that move a PDB to a different CDB remain visible in the Terraform plan.
+
+`container_database_admin_password`, `pdb_admin_password`, and `tde_wallet_password` are sensitive creation-time values. OCI provenance tags are ignored, while customer-defined and freeform tags remain managed.
+
+### <a name="external-dependencies">External Dependencies</a>
+
+External dependencies let configuration values use stable map keys instead of literal OCIDs.
+
+- `database_dependency`: External DB Homes, CDBs, and PDBs.
+- `vm_cluster_dependency`: External Cloud VM Clusters.
+- `db_system_dependency`: External DB Systems.
+- `kms_dependency`: External encryption keys.
+- `recovery_service_dependency`: Recovery Service protection policies, supplied as a direct map or under `protection_policies`.
+
+Use `database_resources` or `database_dependency` from a producing Common Database module as the corresponding `database_dependency` input of a downstream module.
+
+### <a name="outputs">Outputs</a>
+
+When `enable_output` is `true` (the default), the module returns:
+
+- `database_homes`, `databases`, and `pluggable_databases`: sensitive raw resource maps.
+- `database_resources`: minimal ID-only maps for dependency handoff.
+- `database_dependency`: alias of `database_resources` for downstream consumption.
+
+Setting `enable_output` to `false` sets the outputs to `null`.
+
+## <a name="related">Related Documentation</a>
+
+- [OCI Database Service](https://docs.oracle.com/en-us/iaas/database/)
+- [Common Database module specification](./SPEC.md)
+
+## <a name="issues">Known Issues</a>
+
+No known issues.

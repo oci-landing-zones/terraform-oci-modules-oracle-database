@@ -102,8 +102,8 @@ resource "oci_database_database" "these" {
     admin_password = sensitive(each.value.admin_password)
     db_name        = each.value.database.db_name
     #optional
-    backup_id                  = each.value.database.backup_id           #<<Optional value>>
-    backup_tde_password        = each.value.database.backup_tde_password #<<Required when source=DB_BACKUP>>
+    backup_id                  = each.value.database.backup_id                                 #<<Optional value>>
+    backup_tde_password        = sensitive(try(each.value.database.backup_tde_password, null)) #<<Required when source=DB_BACKUP>>
     character_set              = try(each.value.database.character_set, null)
     database_admin_password    = each.value.database.database_admin_password    #<<Required when source=DATAGUARD>>
     database_id                = each.value.database.database_id                #<<Applicable for point-in-time recovery>>
@@ -205,9 +205,11 @@ resource "oci_database_database" "these" {
       db_home_id,
       db_version,
       database.0.admin_password,
+      database.0.backup_tde_password,
       database.0.source_tde_wallet_password,
       database.0.tde_wallet_password,
-      database.0.defined_tags
+      database.0.defined_tags["Oracle-Tags.CreatedBy"],
+      database.0.defined_tags["Oracle-Tags.CreatedOn"]
     ]
   }
 }

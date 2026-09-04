@@ -31,11 +31,11 @@ The following features are currently supported by the module:
 - Support for external dependencies (compartments, subnets, network security groups, vaults and keys)
 
 ## <a name="requirements">Requirements</a>
-### Terraform Version >= 1.3.0
+### Terraform version >= 1.3.0
 
 This module requires Terraform binary version 1.3.0 or greater, as it relies on Optional Object Type Attributes feature.
 
-### IAM Permissions
+### IAM permissions
 
 This module requires the following IAM permissions:
 
@@ -62,8 +62,9 @@ allow dynamic-group <service_label>-database-kms-dynamic-group to manage keys in
 
 Terraform modules can be invoked locally or remotely.
 
-For invoking the module locally, set the module *source* attribute to the module file path (relative path works). Example:
-```
+For local use, set `source` to the module path:
+
+```hcl
 module "autonomous_database" {
   source = "../.."
   autonomous_databases_configuration = var.autonomous_databases_configuration
@@ -74,10 +75,12 @@ module "autonomous_database" {
   }
 }
 ```
-For invoking the module remotely, set the module *source* attribute to the *autonomous-database* module folder in this repository:
-```
+
+For remote use, refer to this module directory in the repository:
+
+```hcl
 module "autonomous_database" {
-  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//autonomous-database"
+  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//autonomous-database?ref=v1.2.0"
   autonomous_databases_configuration = var.autonomous_databases_configuration
   tenancy_ocid                       = var.tenancy_ocid
   providers = {
@@ -85,10 +88,6 @@ module "autonomous_database" {
     oci.home = oci.home
   }
 }
-```
-To refer to a specific module version, add an extra slash before the folder name and append *ref=<version>* to the *source* attribute value:
-```
-  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//autonomous-database?ref=v1.2.0"
 ```
 
 ## <a name="functioning">Module Functioning</a>

@@ -93,5 +93,10 @@ resource "oci_database_cloud_exadata_infrastructure" "these" {
       condition     = each.value.subscription_id_input == null ? true : (each.value.subscription_id != null && can(regex("^ocid1\\.", each.value.subscription_id)))
       error_message = "subscription_id must be an OCID or a key in subscription_dependency."
     }
+
+    ignore_changes = [
+      defined_tags["Oracle-Tags.CreatedBy"],
+      defined_tags["Oracle-Tags.CreatedOn"]
+    ]
   }
 }
