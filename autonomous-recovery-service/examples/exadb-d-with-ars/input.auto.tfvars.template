@@ -37,6 +37,15 @@ network_dependency = {
   }
 }
 
+secrets_dependency = {
+  CDB1-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  CDB1-TDE-WALLET-PASSWORD = {
+    id = "<REPLACE-WITH-TDE-WALLET-PASSWORD-SECRET-OCID>"
+  }
+}
+
 default_compartment_id  = "DATABASE-CMP"
 default_defined_tags    = {}
 default_freeform_tags   = {}
@@ -68,15 +77,15 @@ databases_configuration = {
     source     = "NONE"
     db_home_id = "<REPLACE-WITH-EXADB-DB-HOME-OCID>"
     database = {
-      admin_password      = "<REPLACE-WITH-STRONG-PASSWORD>"
-      db_name             = "CDB1"
-      db_unique_name      = "CDB1_UNQ"
-      db_workload         = "OLTP"
-      character_set       = "AL32UTF8"
-      ncharacter_set      = "AL16UTF16"
-      pdb_name            = "PDB1"
-      sid_prefix          = "cdb1"
-      tde_wallet_password = "<REPLACE-WITH-STRONG-PASSWORD>"
+      admin_password_secret_id      = "CDB1-ADMIN-PASSWORD"
+      db_name                       = "CDB1"
+      db_unique_name                = "CDB1_UNQ"
+      db_workload                   = "OLTP"
+      character_set                 = "AL32UTF8"
+      ncharacter_set                = "AL16UTF16"
+      pdb_name                      = "PDB1"
+      sid_prefix                    = "cdb1"
+      tde_wallet_password_secret_id = "CDB1-TDE-WALLET-PASSWORD"
     }
   }
 }

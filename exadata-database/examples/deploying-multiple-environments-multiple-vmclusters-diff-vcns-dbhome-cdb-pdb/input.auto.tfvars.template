@@ -44,6 +44,45 @@ network_dependency = {
   }
 }
 
+secrets_dependency = {
+  CDB1-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-CDB1-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  CDB1-TDE-WALLET-PASSWORD = {
+    id = "<REPLACE-WITH-CDB1-TDE-WALLET-PASSWORD-SECRET-OCID>"
+  }
+  CDB2-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-CDB2-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  CDB2-TDE-WALLET-PASSWORD = {
+    id = "<REPLACE-WITH-CDB2-TDE-WALLET-PASSWORD-SECRET-OCID>"
+  }
+  CDB3-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-CDB3-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  CDB3-TDE-WALLET-PASSWORD = {
+    id = "<REPLACE-WITH-CDB3-TDE-WALLET-PASSWORD-SECRET-OCID>"
+  }
+  CDB4-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-CDB4-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  CDB4-TDE-WALLET-PASSWORD = {
+    id = "<REPLACE-WITH-CDB4-TDE-WALLET-PASSWORD-SECRET-OCID>"
+  }
+  PDB1B-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-PDB1B-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  PDB2B-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-PDB2B-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  PDB3B-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-PDB3B-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  PDB4B-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-PDB4B-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+}
+
 default_compartment_id = "CMP-1"
 default_freeform_tags  = {}
 default_defined_tags   = {}
@@ -301,8 +340,8 @@ databases_configuration = {
     db_home_id = "DB-HOME-1" # References the DB Home defined above (or a DB Home OCID)
     database = {
       # Required
-      admin_password = "<REPLACE-WITH-STRONG-PASSWORD>"
-      db_name        = "CDB1"
+      admin_password_secret_id = "CDB1-ADMIN-PASSWORD"
+      db_name                  = "CDB1"
 
       #optional
       character_set = "AL32UTF8"
@@ -325,7 +364,7 @@ databases_configuration = {
       # Create initial PDB during CDB creation
       pdb_name            = "PDB1A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
       sid_prefix          = "cdb1"
-      tde_wallet_password = "<REPLACE-WITH-STRONG-PASSWORD>"
+      tde_wallet_password_secret_id = "CDB1-TDE-WALLET-PASSWORD"
     }
   }
 
@@ -338,8 +377,8 @@ databases_configuration = {
     db_home_id = "DB-HOME-1" # References the DB Home defined above (or a DB Home OCID)
     database = {
       # Required
-      admin_password = "<REPLACE-WITH-STRONG-PASSWORD>"
-      db_name        = "CDB2"
+      admin_password_secret_id = "CDB2-ADMIN-PASSWORD"
+      db_name                  = "CDB2"
 
       #optional
       character_set = "AL32UTF8"
@@ -364,7 +403,7 @@ databases_configuration = {
       # Create initial PDB during CDB creation
       pdb_name            = "PDB2A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
       sid_prefix          = "cdb2"
-      tde_wallet_password = "<REPLACE-WITH-STRONG-PASSWORD>"
+      tde_wallet_password_secret_id = "CDB2-TDE-WALLET-PASSWORD"
     }
   }
 
@@ -377,8 +416,8 @@ databases_configuration = {
     db_home_id = "DB-HOME-2" # References the DB Home defined above (or a DB Home OCID)
     database = {
       # Required
-      admin_password = "<REPLACE-WITH-STRONG-PASSWORD>"
-      db_name        = "CDB3"
+      admin_password_secret_id = "CDB3-ADMIN-PASSWORD"
+      db_name                  = "CDB3"
 
       #optional
       character_set = "AL32UTF8"
@@ -401,7 +440,7 @@ databases_configuration = {
       # Create initial PDB during CDB creation
       pdb_name            = "PDB3A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
       sid_prefix          = "cdb3"
-      tde_wallet_password = "<REPLACE-WITH-STRONG-PASSWORD>"
+      tde_wallet_password_secret_id = "CDB3-TDE-WALLET-PASSWORD"
     }
   }
 
@@ -414,8 +453,8 @@ databases_configuration = {
     db_home_id = "DB-HOME-2" # References the DB Home defined above (or a DB Home OCID)
     database = {
       # Required
-      admin_password = "<REPLACE-WITH-STRONG-PASSWORD>"
-      db_name        = "CDB4"
+      admin_password_secret_id = "CDB4-ADMIN-PASSWORD"
+      db_name                  = "CDB4"
 
       #optional
       character_set = "AL32UTF8"
@@ -439,7 +478,7 @@ databases_configuration = {
       # Create initial PDB during CDB creation
       pdb_name            = "PDB4A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
       sid_prefix          = "cdb4"
-      tde_wallet_password = "<REPLACE-WITH-STRONG-PASSWORD>"
+      tde_wallet_password_secret_id = "CDB4-TDE-WALLET-PASSWORD"
     }
 
   }
@@ -457,11 +496,11 @@ pluggable_databases_configuration = {
   PDB1B = {
     container_database_id = "CDB1"  #<<Name or OCID>>
     pdb_name              = "PDB1B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
-    pdb_admin_password    = "<REPLACE-WITH-STRONG-PASSWORD>"
+    pdb_admin_password_secret_id = "PDB1B-ADMIN-PASSWORD"
 
     should_create_pdb_backup           = "false"
     should_pdb_admin_account_be_locked = "false"
-    tde_wallet_password                = "<REPLACE-WITH-STRONG-PASSWORD>" #The existing TDE wallet password of the CDB.
+    tde_wallet_password_secret_id      = "CDB1-TDE-WALLET-PASSWORD" # The existing TDE wallet password of the CDB.
   }
 
   # ---------------------------------------
@@ -470,11 +509,11 @@ pluggable_databases_configuration = {
   PDB2B = {
     container_database_id = "CDB2"  #<<Name or OCID>>
     pdb_name              = "PDB2B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
-    pdb_admin_password    = "<REPLACE-WITH-STRONG-PASSWORD>"
+    pdb_admin_password_secret_id = "PDB2B-ADMIN-PASSWORD"
 
     should_create_pdb_backup           = "false"
     should_pdb_admin_account_be_locked = "false"
-    tde_wallet_password                = "<REPLACE-WITH-STRONG-PASSWORD>" #The existing TDE wallet password of the CDB.
+    tde_wallet_password_secret_id      = "CDB2-TDE-WALLET-PASSWORD" # The existing TDE wallet password of the CDB.
   }
 
   # ---------------------------------------
@@ -483,11 +522,11 @@ pluggable_databases_configuration = {
   PDB3B = {
     container_database_id = "CDB3"  #<<Name or OCID>>
     pdb_name              = "PDB3B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
-    pdb_admin_password    = "<REPLACE-WITH-STRONG-PASSWORD>"
+    pdb_admin_password_secret_id = "PDB3B-ADMIN-PASSWORD"
 
     should_create_pdb_backup           = "false"
     should_pdb_admin_account_be_locked = "false"
-    tde_wallet_password                = "<REPLACE-WITH-STRONG-PASSWORD>" #The existing TDE wallet password of the CDB.
+    tde_wallet_password_secret_id      = "CDB3-TDE-WALLET-PASSWORD" # The existing TDE wallet password of the CDB.
   }
 
   # ---------------------------------------
@@ -496,12 +535,11 @@ pluggable_databases_configuration = {
   PDB4B = {
     container_database_id = "CDB4"  #<<Name or OCID>>
     pdb_name              = "PDB4B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
-    pdb_admin_password    = "<REPLACE-WITH-STRONG-PASSWORD>"
+    pdb_admin_password_secret_id = "PDB4B-ADMIN-PASSWORD"
 
     should_create_pdb_backup           = "false"
     should_pdb_admin_account_be_locked = "false"
-    tde_wallet_password                = "<REPLACE-WITH-STRONG-PASSWORD>" #The existing TDE wallet password of the CDB.
+    tde_wallet_password_secret_id      = "CDB4-TDE-WALLET-PASSWORD" # The existing TDE wallet password of the CDB.
   }
 
 }
-

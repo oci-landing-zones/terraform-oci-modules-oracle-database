@@ -43,6 +43,7 @@ module "exadb_d" {
   subscription_dependency     = var.subscription_dependency
   network_dependency          = var.network_dependency
   recovery_service_dependency = module.autonomous_recovery_service.autonomous_recovery_service_protection_policies
+  secrets_dependency          = var.secrets_dependency
   default_compartment_id      = var.default_compartment_id
   default_defined_tags        = var.default_defined_tags
   default_freeform_tags       = var.default_freeform_tags

@@ -33,17 +33,8 @@ locals {
     for key, secret_ref in local.pdb_tde_wallet_password_secret_id_inputs : key => secret_ref == "" ? null : (can(regex("^ocid1\\.vaultsecret\\.", secret_ref)) ? secret_ref : try(trimspace(var.secrets_dependency[secret_ref].id), null))
   }
 
-  pdb_container_admin_passwords = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.container_database_admin_password) > 0, false) ? pdb.container_database_admin_password : try(base64decode(data.oci_secrets_secretbundle.pdb_container_admin_password[key].secret_bundle_content[0].content), null))
-  }
   pdb_admin_passwords = {
     for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.pdb_admin_password) > 0, false) ? pdb.pdb_admin_password : try(base64decode(data.oci_secrets_secretbundle.pdb_admin_password[key].secret_bundle_content[0].content), null))
-  }
-  pdb_dblink_user_passwords = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.pdb_creation_type_details.dblink_user_password) > 0, false) ? pdb.pdb_creation_type_details.dblink_user_password : try(base64decode(data.oci_secrets_secretbundle.pdb_dblink_user_password[key].secret_bundle_content[0].content), null))
-  }
-  pdb_source_container_admin_passwords = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.pdb_creation_type_details.source_container_database_admin_password) > 0, false) ? pdb.pdb_creation_type_details.source_container_database_admin_password : try(base64decode(data.oci_secrets_secretbundle.pdb_source_container_admin_password[key].secret_bundle_content[0].content), null))
   }
   pdb_tde_wallet_passwords = {
     for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.tde_wallet_password) > 0, false) ? pdb.tde_wallet_password : try(base64decode(data.oci_secrets_secretbundle.pdb_tde_wallet_password[key].secret_bundle_content[0].content), null))
@@ -57,13 +48,8 @@ locals {
       source_pluggable_database_id_input = try(pdb.pdb_creation_type_details.source_pluggable_database_id, null)
       container_database_id              = can(regex("^ocid1\\.database\\.", pdb.container_database_id)) ? pdb.container_database_id : try(oci_database_database.these[pdb.container_database_id].id, local.legacy_inline_database_resources[pdb.container_database_id].id, var.database_dependency.databases[pdb.container_database_id].id, null)
       pdb_creation_type_details = try(pdb.pdb_creation_type_details, null) != null ? merge(pdb.pdb_creation_type_details, {
-        source_pluggable_database_id             = can(regex("^ocid1\\.", pdb.pdb_creation_type_details.source_pluggable_database_id)) ? pdb.pdb_creation_type_details.source_pluggable_database_id : try(var.database_dependency.pluggable_databases[pdb.pdb_creation_type_details.source_pluggable_database_id].id, null)
-        dblink_user_password                     = local.pdb_dblink_user_passwords[key]
-        source_container_database_admin_password = local.pdb_source_container_admin_passwords[key]
+        source_pluggable_database_id = can(regex("^ocid1\\.", pdb.pdb_creation_type_details.source_pluggable_database_id)) ? pdb.pdb_creation_type_details.source_pluggable_database_id : try(var.database_dependency.pluggable_databases[pdb.pdb_creation_type_details.source_pluggable_database_id].id, null)
       }) : null
-      container_database_admin_password = local.pdb_container_admin_passwords[key]
-      pdb_admin_password                = local.pdb_admin_passwords[key]
-      tde_wallet_password               = local.pdb_tde_wallet_passwords[key]
       # Tag defaults
       defined_tags  = coalesce(try(pdb.defined_tags, null), var.default_defined_tags)
       freeform_tags = coalesce(try(pdb.freeform_tags, null), var.default_freeform_tags)
@@ -148,57 +134,79 @@ data "oci_secrets_secretbundle" "pdb_tde_wallet_password" {
 }
 
 resource "oci_database_pluggable_database" "these" {
-  for_each = local.pluggable_databases
+  # Match the ARS pattern: establish resource identity from the original
+  # configuration and resolve sensitive passwords in resource attributes.
+  for_each = coalesce(var.pluggable_databases_configuration, {})
   #Required
-  container_database_id = each.value.container_database_id
-  pdb_name              = each.value.pdb_name
+  container_database_id = local.pluggable_databases[each.key].container_database_id
+  pdb_name              = local.pluggable_databases[each.key].pdb_name
   #Optional
-  container_database_admin_password = sensitive(each.value.container_database_admin_password)
-  defined_tags                      = each.value.defined_tags
-  freeform_tags                     = each.value.freeform_tags
-  kms_key_version_id                = each.value.kms_key_version_id
-  pdb_admin_password                = sensitive(each.value.pdb_admin_password)
+  container_database_admin_password = sensitive(
+    try(length(each.value.container_database_admin_password) > 0, false)
+    ? each.value.container_database_admin_password
+    : try(base64decode(data.oci_secrets_secretbundle.pdb_container_admin_password[each.key].secret_bundle_content[0].content), null)
+  )
+  defined_tags       = local.pluggable_databases[each.key].defined_tags
+  freeform_tags      = local.pluggable_databases[each.key].freeform_tags
+  kms_key_version_id = local.pluggable_databases[each.key].kms_key_version_id
+  pdb_admin_password = sensitive(
+    try(length(each.value.pdb_admin_password) > 0, false)
+    ? each.value.pdb_admin_password
+    : try(base64decode(data.oci_secrets_secretbundle.pdb_admin_password[each.key].secret_bundle_content[0].content), null)
+  )
   dynamic "pdb_creation_type_details" {
-    for_each = each.value.pdb_creation_type_details != null ? [each.value.pdb_creation_type_details] : []
+    for_each = local.pluggable_databases[each.key].pdb_creation_type_details != null ? [local.pluggable_databases[each.key].pdb_creation_type_details] : []
     content {
       creation_type                = pdb_creation_type_details.value.creation_type
       source_pluggable_database_id = pdb_creation_type_details.value.source_pluggable_database_id
-      dblink_user_password         = sensitive(pdb_creation_type_details.value.dblink_user_password)
-      dblink_username              = pdb_creation_type_details.value.dblink_username
-      is_thin_clone                = pdb_creation_type_details.value.is_thin_clone
+      dblink_user_password = sensitive(
+        try(length(each.value.pdb_creation_type_details.dblink_user_password) > 0, false)
+        ? each.value.pdb_creation_type_details.dblink_user_password
+        : try(base64decode(data.oci_secrets_secretbundle.pdb_dblink_user_password[each.key].secret_bundle_content[0].content), null)
+      )
+      dblink_username = pdb_creation_type_details.value.dblink_username
+      is_thin_clone   = pdb_creation_type_details.value.is_thin_clone
       dynamic "refreshable_clone_details" {
         for_each = try(pdb_creation_type_details.value.refreshable_clone_details, null) != null ? [pdb_creation_type_details.value.refreshable_clone_details] : []
         content {
           is_refreshable_clone = refreshable_clone_details.value.is_refreshable_clone
         }
       }
-      source_container_database_admin_password = sensitive(pdb_creation_type_details.value.source_container_database_admin_password)
+      source_container_database_admin_password = sensitive(
+        try(length(each.value.pdb_creation_type_details.source_container_database_admin_password) > 0, false)
+        ? each.value.pdb_creation_type_details.source_container_database_admin_password
+        : try(base64decode(data.oci_secrets_secretbundle.pdb_source_container_admin_password[each.key].secret_bundle_content[0].content), null)
+      )
     }
   }
-  should_create_pdb_backup           = each.value.should_create_pdb_backup
-  should_pdb_admin_account_be_locked = each.value.should_pdb_admin_account_be_locked
-  tde_wallet_password                = sensitive(each.value.tde_wallet_password)
+  should_create_pdb_backup           = local.pluggable_databases[each.key].should_create_pdb_backup
+  should_pdb_admin_account_be_locked = local.pluggable_databases[each.key].should_pdb_admin_account_be_locked
+  tde_wallet_password = sensitive(
+    try(length(each.value.tde_wallet_password) > 0, false)
+    ? each.value.tde_wallet_password
+    : try(base64decode(data.oci_secrets_secretbundle.pdb_tde_wallet_password[each.key].secret_bundle_content[0].content), null)
+  )
 
   lifecycle {
     precondition {
-      condition     = each.value.container_database_id != null && can(regex("^ocid1\\.database\\.", each.value.container_database_id))
+      condition     = local.pluggable_databases[each.key].container_database_id != null && can(regex("^ocid1\\.database\\.", local.pluggable_databases[each.key].container_database_id))
       error_message = "container_database_id must be a database OCID or a key that resolves to a database dependency; DB Home OCIDs are not valid PDB container database IDs."
     }
 
     precondition {
-      condition     = each.value.source_pluggable_database_id_input == null ? true : (try(each.value.pdb_creation_type_details.source_pluggable_database_id, null) != null && can(regex("^ocid1\\.pluggabledatabase\\.", each.value.pdb_creation_type_details.source_pluggable_database_id)))
+      condition     = local.pluggable_databases[each.key].source_pluggable_database_id_input == null ? true : (try(local.pluggable_databases[each.key].pdb_creation_type_details.source_pluggable_database_id, null) != null && can(regex("^ocid1\\.pluggabledatabase\\.", local.pluggable_databases[each.key].pdb_creation_type_details.source_pluggable_database_id)))
       error_message = "source_pluggable_database_id must be a pluggable database OCID or a key in database_dependency.pluggable_databases."
     }
 
     precondition {
       condition = !try(length(var.pluggable_databases_configuration[each.key].pdb_admin_password) > 0, false) && local.pdb_admin_password_secret_id_inputs[each.key] == "" ? true : try(
-        length(nonsensitive(each.value.pdb_admin_password)) >= 9 &&
-        length(nonsensitive(each.value.pdb_admin_password)) <= 30 &&
-        can(regex("^[A-Za-z0-9#_-]+$", nonsensitive(each.value.pdb_admin_password))) &&
-        length(regexall("[A-Z]", nonsensitive(each.value.pdb_admin_password))) >= 2 &&
-        length(regexall("[a-z]", nonsensitive(each.value.pdb_admin_password))) >= 2 &&
-        length(regexall("[0-9]", nonsensitive(each.value.pdb_admin_password))) >= 2 &&
-        length(regexall("[#_-]", nonsensitive(each.value.pdb_admin_password))) >= 2,
+        length(nonsensitive(local.pdb_admin_passwords[each.key])) >= 9 &&
+        length(nonsensitive(local.pdb_admin_passwords[each.key])) <= 30 &&
+        can(regex("^[A-Za-z0-9#_-]+$", nonsensitive(local.pdb_admin_passwords[each.key]))) &&
+        length(regexall("[A-Z]", nonsensitive(local.pdb_admin_passwords[each.key]))) >= 2 &&
+        length(regexall("[a-z]", nonsensitive(local.pdb_admin_passwords[each.key]))) >= 2 &&
+        length(regexall("[0-9]", nonsensitive(local.pdb_admin_passwords[each.key]))) >= 2 &&
+        length(regexall("[#_-]", nonsensitive(local.pdb_admin_passwords[each.key]))) >= 2,
         false
       )
       error_message = "The resolved PDB admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
@@ -206,13 +214,13 @@ resource "oci_database_pluggable_database" "these" {
 
     precondition {
       condition = !try(length(var.pluggable_databases_configuration[each.key].tde_wallet_password) > 0, false) && local.pdb_tde_wallet_password_secret_id_inputs[each.key] == "" ? true : try(
-        length(nonsensitive(each.value.tde_wallet_password)) >= 9 &&
-        length(nonsensitive(each.value.tde_wallet_password)) <= 30 &&
-        can(regex("^[A-Za-z0-9#_-]+$", nonsensitive(each.value.tde_wallet_password))) &&
-        length(regexall("[A-Z]", nonsensitive(each.value.tde_wallet_password))) >= 2 &&
-        length(regexall("[a-z]", nonsensitive(each.value.tde_wallet_password))) >= 2 &&
-        length(regexall("[0-9]", nonsensitive(each.value.tde_wallet_password))) >= 2 &&
-        length(regexall("[#_-]", nonsensitive(each.value.tde_wallet_password))) >= 2,
+        length(nonsensitive(local.pdb_tde_wallet_passwords[each.key])) >= 9 &&
+        length(nonsensitive(local.pdb_tde_wallet_passwords[each.key])) <= 30 &&
+        can(regex("^[A-Za-z0-9#_-]+$", nonsensitive(local.pdb_tde_wallet_passwords[each.key]))) &&
+        length(regexall("[A-Z]", nonsensitive(local.pdb_tde_wallet_passwords[each.key]))) >= 2 &&
+        length(regexall("[a-z]", nonsensitive(local.pdb_tde_wallet_passwords[each.key]))) >= 2 &&
+        length(regexall("[0-9]", nonsensitive(local.pdb_tde_wallet_passwords[each.key]))) >= 2 &&
+        length(regexall("[#_-]", nonsensitive(local.pdb_tde_wallet_passwords[each.key]))) >= 2,
         false
       )
       error_message = "The resolved PDB TDE wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."

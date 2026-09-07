@@ -15,6 +15,15 @@ locals {
     )
   }
 
+  admin_passwords = {
+    for k, v in var.autonomous_databases_configuration.databases :
+    k => sensitive(
+      try(length(v.admin_password) > 0, false)
+      ? v.admin_password
+      : try(base64decode(data.oci_secrets_secretbundle.admin_password[k].secret_bundle_content[0].content), null)
+    )
+  }
+
   tde_vault_id_inputs = {
     for k, v in var.autonomous_databases_configuration.databases :
     k => try(v.is_dedicated, true) == true ? null : try(v.security.tde.existing_oci_vault_id, null)
@@ -42,22 +51,17 @@ locals {
     data_storage_size_in_tbs         = v.db_workload == "DW" ? v.dw_storage_size_in_tbs : null
     admin_password_secret_id_input   = local.admin_password_secret_id_inputs[k]
     admin_password_secret_id         = local.admin_password_secret_ids[k]
-    admin_password = sensitive(
-      try(length(v.admin_password) > 0, false)
-      ? v.admin_password
-      : try(base64decode(data.oci_secrets_secretbundle.admin_password[k].secret_bundle_content[0].content), null)
-    )
-    display_name                = coalesce(v.display_name, v.db_name)
-    db_workload                 = v.db_workload
-    is_free_tier                = v.is_free_tier
-    is_dev_tier                 = v.is_dev_tier
-    license_model               = v.is_dedicated ? null : v.license_model # default "LICENSE_INCLUDED", defaults to null for dedicated
-    enable_cpu_auto_scaling     = v.enable_cpu_auto_scaling
-    enable_storage_auto_scaling = v.is_dedicated ? null : v.enable_storage_auto_scaling
-    character_set               = v.character_set
-    national_character_set      = v.national_character_set
-    backup_retention_in_days    = v.is_dedicated ? null : v.backup_retention_in_days
-    whitelisted_ips             = try(v.networking.whitelisted_ips, null) != null ? v.networking.whitelisted_ips : null
+    display_name                     = coalesce(v.display_name, v.db_name)
+    db_workload                      = v.db_workload
+    is_free_tier                     = v.is_free_tier
+    is_dev_tier                      = v.is_dev_tier
+    license_model                    = v.is_dedicated ? null : v.license_model # default "LICENSE_INCLUDED", defaults to null for dedicated
+    enable_cpu_auto_scaling          = v.enable_cpu_auto_scaling
+    enable_storage_auto_scaling      = v.is_dedicated ? null : v.enable_storage_auto_scaling
+    character_set                    = v.character_set
+    national_character_set           = v.national_character_set
+    backup_retention_in_days         = v.is_dedicated ? null : v.backup_retention_in_days
+    whitelisted_ips                  = try(v.networking.whitelisted_ips, null) != null ? v.networking.whitelisted_ips : null
 
     enable_private_endpoint = try(v.networking.enable_private_endpoint, false)
     private_endpoint_label  = try(v.networking.enable_private_endpoint, false) == true ? "${lower(v.db_name)}-private-endpoint" : ""
@@ -103,43 +107,47 @@ data "oci_secrets_secretbundle" "admin_password" {
 }
 
 resource "oci_database_autonomous_database" "these" {
-  depends_on                          = [null_resource.wait]
-  for_each                            = local.db_configs
-  compartment_id                      = each.value.compartment_id
-  subnet_id                           = each.value.subnet_id
-  db_name                             = each.value.db_name
-  db_version                          = each.value.db_version
-  database_edition                    = each.value.db_edition
-  is_dedicated                        = each.value.is_dedicated
-  autonomous_container_database_id    = each.value.autonomous_container_database_id
-  compute_model                       = "ECPU"
-  compute_count                       = each.value.ecpu_count
-  data_storage_size_in_tbs            = each.value.data_storage_size_in_tbs
-  data_storage_size_in_gb             = each.value.data_storage_size_in_gbs
-  admin_password                      = each.value.admin_password
-  display_name                        = each.value.display_name
-  db_workload                         = each.value.db_workload
-  is_free_tier                        = each.value.is_free_tier
-  is_dev_tier                         = each.value.is_dev_tier
-  license_model                       = each.value.license_model
-  is_auto_scaling_enabled             = each.value.enable_cpu_auto_scaling
-  is_auto_scaling_for_storage_enabled = each.value.enable_storage_auto_scaling
-  character_set                       = each.value.character_set
-  ncharacter_set                      = each.value.national_character_set
-  backup_retention_period_in_days     = each.value.backup_retention_in_days
-  nsg_ids                             = each.value.nsg_ids
-  whitelisted_ips                     = each.value.whitelisted_ips
-  defined_tags                        = each.value.defined_tags
-  freeform_tags                       = each.value.freeform_tags
-  private_endpoint_label              = each.value.private_endpoint_label
-  private_endpoint_ip                 = each.value.private_endpoint_ip
-  security_attributes                 = each.value.security_attributes
+  depends_on                       = [null_resource.wait]
+  for_each                         = var.autonomous_databases_configuration.databases
+  compartment_id                   = local.db_configs[each.key].compartment_id
+  subnet_id                        = local.db_configs[each.key].subnet_id
+  db_name                          = local.db_configs[each.key].db_name
+  db_version                       = local.db_configs[each.key].db_version
+  database_edition                 = local.db_configs[each.key].db_edition
+  is_dedicated                     = local.db_configs[each.key].is_dedicated
+  autonomous_container_database_id = local.db_configs[each.key].autonomous_container_database_id
+  compute_model                    = "ECPU"
+  compute_count                    = local.db_configs[each.key].ecpu_count
+  data_storage_size_in_tbs         = local.db_configs[each.key].data_storage_size_in_tbs
+  data_storage_size_in_gb          = local.db_configs[each.key].data_storage_size_in_gbs
+  admin_password = sensitive(
+    try(length(each.value.admin_password) > 0, false)
+    ? each.value.admin_password
+    : try(base64decode(data.oci_secrets_secretbundle.admin_password[each.key].secret_bundle_content[0].content), null)
+  )
+  display_name                        = local.db_configs[each.key].display_name
+  db_workload                         = local.db_configs[each.key].db_workload
+  is_free_tier                        = local.db_configs[each.key].is_free_tier
+  is_dev_tier                         = local.db_configs[each.key].is_dev_tier
+  license_model                       = local.db_configs[each.key].license_model
+  is_auto_scaling_enabled             = local.db_configs[each.key].enable_cpu_auto_scaling
+  is_auto_scaling_for_storage_enabled = local.db_configs[each.key].enable_storage_auto_scaling
+  character_set                       = local.db_configs[each.key].character_set
+  ncharacter_set                      = local.db_configs[each.key].national_character_set
+  backup_retention_period_in_days     = local.db_configs[each.key].backup_retention_in_days
+  nsg_ids                             = local.db_configs[each.key].nsg_ids
+  whitelisted_ips                     = local.db_configs[each.key].whitelisted_ips
+  defined_tags                        = local.db_configs[each.key].defined_tags
+  freeform_tags                       = local.db_configs[each.key].freeform_tags
+  private_endpoint_label              = local.db_configs[each.key].private_endpoint_label
+  private_endpoint_ip                 = local.db_configs[each.key].private_endpoint_ip
+  security_attributes                 = local.db_configs[each.key].security_attributes
   dynamic "encryption_key" {
-    for_each = each.value.is_dedicated == false && (each.value.deploy_new_oci_encryption_key == true || each.value.oci_encryption_key_id != null) ? [1] : []
+    for_each = local.db_configs[each.key].is_dedicated == false && (local.db_configs[each.key].deploy_new_oci_encryption_key == true || local.db_configs[each.key].oci_encryption_key_id != null) ? [1] : []
     content {
       autonomous_database_provider = "OCI"
-      kms_key_id                   = try(module.master_keys[0].keys["${each.key}-KEY"].id, each.value.oci_encryption_key_id)
-      vault_id                     = each.value.oci_vault_id
+      kms_key_id                   = try(module.master_keys[0].keys["${each.key}-KEY"].id, local.db_configs[each.key].oci_encryption_key_id)
+      vault_id                     = local.db_configs[each.key].oci_vault_id
     }
   }
 
@@ -158,40 +166,40 @@ resource "oci_database_autonomous_database" "these" {
     ]
 
     precondition {
-      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.compartment\\.", each.value.compartment_id))
+      condition     = local.db_configs[each.key].compartment_id != null && can(regex("^ocid1\\.compartment\\.", local.db_configs[each.key].compartment_id))
       error_message = "compartment_id must be a compartment OCID or a key in compartments_dependency."
     }
     precondition {
       condition = try(
-        length(nonsensitive(each.value.admin_password)) >= 12 &&
-        length(nonsensitive(each.value.admin_password)) <= 30 &&
-        can(regex("[A-Z]", nonsensitive(each.value.admin_password))) &&
-        can(regex("[a-z]", nonsensitive(each.value.admin_password))) &&
-        can(regex("[0-9]", nonsensitive(each.value.admin_password))) &&
-        !can(regex("\"", nonsensitive(each.value.admin_password))) &&
-        !can(regex("admin", lower(nonsensitive(each.value.admin_password)))),
+        length(nonsensitive(local.admin_passwords[each.key])) >= 12 &&
+        length(nonsensitive(local.admin_passwords[each.key])) <= 30 &&
+        can(regex("[A-Z]", nonsensitive(local.admin_passwords[each.key]))) &&
+        can(regex("[a-z]", nonsensitive(local.admin_passwords[each.key]))) &&
+        can(regex("[0-9]", nonsensitive(local.admin_passwords[each.key]))) &&
+        !can(regex("\"", nonsensitive(local.admin_passwords[each.key]))) &&
+        !can(regex("admin", lower(nonsensitive(local.admin_passwords[each.key])))),
         false
       )
       error_message = "Password must be between 12 and 30 characters, contain at least one uppercase letter, one lowercase letter, one numeric character, and cannot contain double quotes or 'admin' (case insensitive)."
     }
     precondition {
-      condition     = each.value.is_dedicated == false || (each.value.autonomous_container_database_id != null && can(regex("^ocid1\\.autonomouscontainerdatabase\\.", each.value.autonomous_container_database_id)))
+      condition     = local.db_configs[each.key].is_dedicated == false || (local.db_configs[each.key].autonomous_container_database_id != null && can(regex("^ocid1\\.autonomouscontainerdatabase\\.", local.db_configs[each.key].autonomous_container_database_id)))
       error_message = "autonomous_container_db_id must be an Autonomous Container Database OCID or a key in databases_dependency.container_databases."
     }
     precondition {
-      condition     = each.value.enable_private_endpoint == false || (each.value.subnet_id != null && can(regex("^ocid1\\.subnet\\.", each.value.subnet_id)))
+      condition     = local.db_configs[each.key].enable_private_endpoint == false || (local.db_configs[each.key].subnet_id != null && can(regex("^ocid1\\.subnet\\.", local.db_configs[each.key].subnet_id)))
       error_message = "networking.subnet_id must be a subnet OCID or a key in network_dependency.subnets."
     }
     precondition {
-      condition     = each.value.enable_private_endpoint == false || alltrue([for id in coalesce(each.value.nsg_ids, []) : id != null && can(regex("^ocid1\\.networksecuritygroup\\.", id))])
+      condition     = local.db_configs[each.key].enable_private_endpoint == false || alltrue([for id in coalesce(local.db_configs[each.key].nsg_ids, []) : id != null && can(regex("^ocid1\\.networksecuritygroup\\.", id))])
       error_message = "networking.network_security_groups must contain network security group OCIDs or keys in network_dependency.network_security_groups."
     }
     precondition {
-      condition     = each.value.is_dedicated == true || each.value.oci_vault_id_input == null || (each.value.oci_vault_id != null && can(regex("^ocid1\\.vault\\.", each.value.oci_vault_id)))
+      condition     = local.db_configs[each.key].is_dedicated == true || local.db_configs[each.key].oci_vault_id_input == null || (local.db_configs[each.key].oci_vault_id != null && can(regex("^ocid1\\.vault\\.", local.db_configs[each.key].oci_vault_id)))
       error_message = "ADB Shared/Serverless TDE vault keys must resolve through vaults_dependency. A temporary 1.1.0 compatibility fallback accepts a vault OCID stored in kms_dependency, but this fallback is deprecated."
     }
     precondition {
-      condition     = each.value.is_dedicated == true || each.value.deploy_new_oci_encryption_key == true || each.value.oci_encryption_key_id_input == null || (each.value.oci_encryption_key_id != null && can(regex("^ocid1\\.key\\.", each.value.oci_encryption_key_id)))
+      condition     = local.db_configs[each.key].is_dedicated == true || local.db_configs[each.key].deploy_new_oci_encryption_key == true || local.db_configs[each.key].oci_encryption_key_id_input == null || (local.db_configs[each.key].oci_encryption_key_id != null && can(regex("^ocid1\\.key\\.", local.db_configs[each.key].oci_encryption_key_id)))
       error_message = "ADB Shared/Serverless TDE encryption key IDs must resolve through kms_dependency. Use a literal key OCID or a valid kms_dependency key."
     }
   }

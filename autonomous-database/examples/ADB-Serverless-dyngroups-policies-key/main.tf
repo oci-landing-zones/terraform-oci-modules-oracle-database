@@ -5,6 +5,7 @@
 module "adb" {
   source                             = "../.."
   autonomous_databases_configuration = var.autonomous_databases_configuration
+  secrets_dependency                 = var.secrets_dependency
   network_dependency                 = var.network_dependency
   vaults_dependency                  = var.vaults_dependency
   kms_dependency                     = var.kms_dependency

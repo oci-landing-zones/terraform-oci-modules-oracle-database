@@ -5,6 +5,7 @@
 module "adb" {
   source                             = "../.."
   autonomous_databases_configuration = var.autonomous_databases_configuration
+  secrets_dependency                 = var.secrets_dependency
   tenancy_ocid                       = var.tenancy_ocid
   providers = {
     oci      = oci

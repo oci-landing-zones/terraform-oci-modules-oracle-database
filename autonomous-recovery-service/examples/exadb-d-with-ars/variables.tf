@@ -24,6 +24,11 @@ variable "network_dependency" {
   default = null
 }
 
+variable "secrets_dependency" {
+  type    = any
+  default = null
+}
+
 variable "default_compartment_id" {
   type    = any
   default = null
