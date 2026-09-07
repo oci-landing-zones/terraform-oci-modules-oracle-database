@@ -3,16 +3,17 @@
 
 output "recovery_service_subnets" {
   description = "Recovery Service subnets created by the ARS module."
-  value       = module.autonomous_recovery_service.recovery_service_subnets
+  value       = module.autonomous_recovery_service.autonomous_recovery_service_subnets
 }
 
 output "protection_policies" {
   description = "Protection policies created by the ARS module."
-  value       = module.autonomous_recovery_service.protection_policies
+  value       = module.autonomous_recovery_service.autonomous_recovery_service_protection_policies
 }
 
 output "cloud_exadata_database_resources" {
   description = "Exadata Database resources created by the Exadata module."
+  sensitive   = true
   value = {
     databases = module.exadb_d.databases
   }

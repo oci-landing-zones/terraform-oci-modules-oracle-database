@@ -4,6 +4,12 @@
 module "autonomous_recovery_service" {
   source = "../.."
 
+  providers = {
+    oci      = oci
+    oci.home = oci.home
+  }
+
+  tenancy_ocid                              = var.tenancy_ocid
   autonomous_recovery_service_configuration = var.autonomous_recovery_service_configuration
   compartments_dependency                   = var.compartments_dependency
   network_dependency                        = var.network_dependency
@@ -36,7 +42,7 @@ module "exadb_d" {
   compartments_dependency     = var.compartments_dependency
   subscription_dependency     = var.subscription_dependency
   network_dependency          = var.network_dependency
-  recovery_service_dependency = module.autonomous_recovery_service.protection_policies
+  recovery_service_dependency = module.autonomous_recovery_service.autonomous_recovery_service_protection_policies
   default_compartment_id      = var.default_compartment_id
   default_defined_tags        = var.default_defined_tags
   default_freeform_tags       = var.default_freeform_tags

@@ -11,6 +11,7 @@ fingerprint          = "<REPLACE-WITH-FINGERPRINT>"
 private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"
 private_key_password = ""
 region               = "<REPLACE-WITH-REGION>"
+home_region          = "<REPLACE-WITH-HOME-REGION>"
 
 compartments_dependency = {
   DATABASE-CMP = {
@@ -36,20 +37,21 @@ network_dependency = {
   }
 }
 
-default_compartment_id = "DATABASE-CMP"
-default_defined_tags   = {}
-default_freeform_tags  = {}
+default_compartment_id  = "DATABASE-CMP"
+default_defined_tags    = {}
+default_freeform_tags   = {}
 subscription_dependency = null
 
 autonomous_recovery_service_configuration = {
   default_compartment_id = "DATABASE-CMP"
 
-  recovery_service_subnets = {
+  recovery_subnets = {
     EXADB-RSS = {
-      display_name = "exadb-recovery-service-subnet"
-      vcn_id       = "EXADB-VCN"
-      subnet_ids   = ["EXADB-BACKUP-SUBNET"]
-      nsg_ids      = ["EXADB-BACKUP-NSG"]
+      display_name       = "exadb-recovery-service-subnet"
+      vcn_id             = "EXADB-VCN"
+      subnet_ids         = ["EXADB-BACKUP-SUBNET"]
+      enable_default_nsg = false
+      nsg_ids            = ["EXADB-BACKUP-NSG"]
     }
   }
 
