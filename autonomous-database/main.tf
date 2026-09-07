@@ -1,6 +1,20 @@
 # Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 locals {
+  admin_password_secret_id_inputs = {
+    for k, v in var.autonomous_databases_configuration.databases :
+    k => try(trimspace(v.admin_password_secret_id), "")
+  }
+
+  admin_password_secret_ids = {
+    for k, secret_ref in local.admin_password_secret_id_inputs :
+    k => secret_ref == "" ? null : (
+      can(regex("^ocid1\\.vaultsecret\\.", secret_ref))
+      ? secret_ref
+      : try(trimspace(var.secrets_dependency[secret_ref].id), null)
+    )
+  }
+
   tde_vault_id_inputs = {
     for k, v in var.autonomous_databases_configuration.databases :
     k => try(v.is_dedicated, true) == true ? null : try(v.security.tde.existing_oci_vault_id, null)
@@ -26,18 +40,24 @@ locals {
     ecpu_count                       = v.ecpu_count
     data_storage_size_in_gbs         = v.db_workload == "DW" ? null : v.non_dw_storage_size_in_gbs
     data_storage_size_in_tbs         = v.db_workload == "DW" ? v.dw_storage_size_in_tbs : null
-    admin_password                   = v.admin_password
-    display_name                     = coalesce(v.display_name, v.db_name)
-    db_workload                      = v.db_workload
-    is_free_tier                     = v.is_free_tier
-    is_dev_tier                      = v.is_dev_tier
-    license_model                    = v.is_dedicated ? null : v.license_model # default "LICENSE_INCLUDED", defaults to null for dedicated
-    enable_cpu_auto_scaling          = v.enable_cpu_auto_scaling
-    enable_storage_auto_scaling      = v.is_dedicated ? null : v.enable_storage_auto_scaling
-    character_set                    = v.character_set
-    national_character_set           = v.national_character_set
-    backup_retention_in_days         = v.is_dedicated ? null : v.backup_retention_in_days
-    whitelisted_ips                  = try(v.networking.whitelisted_ips, null) != null ? v.networking.whitelisted_ips : null
+    admin_password_secret_id_input   = local.admin_password_secret_id_inputs[k]
+    admin_password_secret_id         = local.admin_password_secret_ids[k]
+    admin_password = sensitive(
+      try(length(v.admin_password) > 0, false)
+      ? v.admin_password
+      : try(base64decode(data.oci_secrets_secretbundle.admin_password[k].secret_bundle_content[0].content), null)
+    )
+    display_name                = coalesce(v.display_name, v.db_name)
+    db_workload                 = v.db_workload
+    is_free_tier                = v.is_free_tier
+    is_dev_tier                 = v.is_dev_tier
+    license_model               = v.is_dedicated ? null : v.license_model # default "LICENSE_INCLUDED", defaults to null for dedicated
+    enable_cpu_auto_scaling     = v.enable_cpu_auto_scaling
+    enable_storage_auto_scaling = v.is_dedicated ? null : v.enable_storage_auto_scaling
+    character_set               = v.character_set
+    national_character_set      = v.national_character_set
+    backup_retention_in_days    = v.is_dedicated ? null : v.backup_retention_in_days
+    whitelisted_ips             = try(v.networking.whitelisted_ips, null) != null ? v.networking.whitelisted_ips : null
 
     enable_private_endpoint = try(v.networking.enable_private_endpoint, false)
     private_endpoint_label  = try(v.networking.enable_private_endpoint, false) == true ? "${lower(v.db_name)}-private-endpoint" : ""
@@ -56,6 +76,28 @@ locals {
 
     defined_tags  = coalesce(v.defined_tags, var.autonomous_databases_configuration.default_defined_tags)
     freeform_tags = coalesce(v.freeform_tags, var.autonomous_databases_configuration.default_freeform_tags)
+    }
+  }
+}
+
+data "oci_secrets_secretbundle" "admin_password" {
+  for_each = {
+    for k, secret_ref in local.admin_password_secret_id_inputs :
+    k => local.admin_password_secret_ids[k]
+    if secret_ref != ""
+  }
+
+  secret_id = each.value
+  stage     = "CURRENT"
+
+  lifecycle {
+    precondition {
+      condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
+      error_message = "admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
+    }
+    postcondition {
+      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
+      error_message = "The current admin password secret content must be nonempty valid Base64."
     }
   }
 }
@@ -118,6 +160,19 @@ resource "oci_database_autonomous_database" "these" {
     precondition {
       condition     = each.value.compartment_id != null && can(regex("^ocid1\\.compartment\\.", each.value.compartment_id))
       error_message = "compartment_id must be a compartment OCID or a key in compartments_dependency."
+    }
+    precondition {
+      condition = try(
+        length(nonsensitive(each.value.admin_password)) >= 12 &&
+        length(nonsensitive(each.value.admin_password)) <= 30 &&
+        can(regex("[A-Z]", nonsensitive(each.value.admin_password))) &&
+        can(regex("[a-z]", nonsensitive(each.value.admin_password))) &&
+        can(regex("[0-9]", nonsensitive(each.value.admin_password))) &&
+        !can(regex("\"", nonsensitive(each.value.admin_password))) &&
+        !can(regex("admin", lower(nonsensitive(each.value.admin_password)))),
+        false
+      )
+      error_message = "Password must be between 12 and 30 characters, contain at least one uppercase letter, one lowercase letter, one numeric character, and cannot contain double quotes or 'admin' (case insensitive)."
     }
     precondition {
       condition     = each.value.is_dedicated == false || (each.value.autonomous_container_database_id != null && can(regex("^ocid1\\.autonomouscontainerdatabase\\.", each.value.autonomous_container_database_id)))

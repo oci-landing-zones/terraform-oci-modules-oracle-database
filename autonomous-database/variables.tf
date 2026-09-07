@@ -31,7 +31,8 @@ variable "autonomous_databases_configuration" {
       ecpu_count                  = optional(number, 2)   # 2 is the minimum count for ECPUs. For the same performance of 1 OCPU, the recommended ECPU count is 4. 
       dw_storage_size_in_tbs      = optional(number, 1)   # It is required for "DW" db_workload. Unit is terabytes.
       non_dw_storage_size_in_gbs  = optional(number, 32)  # Use this for all db_workloads, except "DW". Unit is gigabytes (minimum is 20GB). For "DW" use dw_storage_size_in_tbs.
-      admin_password              = string
+      admin_password              = optional(string)
+      admin_password_secret_id    = optional(string)
       character_set               = optional(string) # Default is "AL32UTF8"
       national_character_set      = optional(string) # Default is "AL16UTF16"
       backup_retention_in_days    = optional(number) # Retention period, in days, for long-term backups. For ADB-D, this is determined by the value set at Autonomous Container Database
@@ -64,15 +65,26 @@ variable "autonomous_databases_configuration" {
   })
 
   validation {
+    condition = alltrue([
+      for database in values(var.autonomous_databases_configuration.databases) :
+      (try(length(database.admin_password) > 0, false)) !=
+      (try(length(trimspace(database.admin_password_secret_id)) > 0, false))
+    ])
+    error_message = "Each Autonomous Database must define exactly one of admin_password or admin_password_secret_id."
+  }
+
+  validation {
     condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
       for k, v in var.autonomous_databases_configuration.databases :
-      length(v.admin_password) >= 12 &&             # between 12 and 30 characters long
-      length(v.admin_password) <= 30 &&             # between 12 and 30 characters long
-      can(regex("[A-Z]", v.admin_password)) &&      # contain at least 1 uppercase
-      can(regex("[a-z]", v.admin_password)) &&      # contain at least 1 lowercase
-      can(regex("[0-9]", v.admin_password)) &&      # contains at least 1 numeric character
-      !can(regex("\"", v.admin_password)) &&        # cannot contain the double quote symbol (")
-      !can(regex("admin", lower(v.admin_password))) # cannot contain the username "admin", regardless of casing.
+      try(length(v.admin_password) > 0, false) ? (
+        length(v.admin_password) >= 12 &&             # between 12 and 30 characters long
+        length(v.admin_password) <= 30 &&             # between 12 and 30 characters long
+        can(regex("[A-Z]", v.admin_password)) &&      # contain at least 1 uppercase
+        can(regex("[a-z]", v.admin_password)) &&      # contain at least 1 lowercase
+        can(regex("[0-9]", v.admin_password)) &&      # contains at least 1 numeric character
+        !can(regex("\"", v.admin_password)) &&        # cannot contain the double quote symbol (")
+        !can(regex("admin", lower(v.admin_password))) # cannot contain the username "admin", regardless of casing.
+      ) : true
     ])
     error_message = "Password must be between 12 and 30 characters, contain at least one uppercase letter, one lowercase letter, one numeric character, and cannot contain double quotes or 'admin' (case insensitive)."
   }
@@ -139,6 +151,14 @@ variable "network_dependency" {
       id = string # the NSG OCID
     })))
   })
+  default = null
+}
+
+variable "secrets_dependency" {
+  description = "A map of objects containing externally managed OCI secrets this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the secret OCID) of string type."
+  type = map(object({
+    id = string
+  }))
   default = null
 }
 

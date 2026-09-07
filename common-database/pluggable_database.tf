@@ -1,6 +1,54 @@
 # Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 locals {
+  pdb_container_admin_password_secret_id_inputs = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.container_database_admin_password_secret_id), "")
+  }
+  pdb_admin_password_secret_id_inputs = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.pdb_admin_password_secret_id), "")
+  }
+  pdb_dblink_user_password_secret_id_inputs = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.pdb_creation_type_details.dblink_user_password_secret_id), "")
+  }
+  pdb_source_container_admin_password_secret_id_inputs = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.pdb_creation_type_details.source_container_database_admin_password_secret_id), "")
+  }
+  pdb_tde_wallet_password_secret_id_inputs = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.tde_wallet_password_secret_id), "")
+  }
+
+  pdb_container_admin_password_secret_ids = {
+    for key, secret_ref in local.pdb_container_admin_password_secret_id_inputs : key => secret_ref == "" ? null : (can(regex("^ocid1\\.vaultsecret\\.", secret_ref)) ? secret_ref : try(trimspace(var.secrets_dependency[secret_ref].id), null))
+  }
+  pdb_admin_password_secret_ids = {
+    for key, secret_ref in local.pdb_admin_password_secret_id_inputs : key => secret_ref == "" ? null : (can(regex("^ocid1\\.vaultsecret\\.", secret_ref)) ? secret_ref : try(trimspace(var.secrets_dependency[secret_ref].id), null))
+  }
+  pdb_dblink_user_password_secret_ids = {
+    for key, secret_ref in local.pdb_dblink_user_password_secret_id_inputs : key => secret_ref == "" ? null : (can(regex("^ocid1\\.vaultsecret\\.", secret_ref)) ? secret_ref : try(trimspace(var.secrets_dependency[secret_ref].id), null))
+  }
+  pdb_source_container_admin_password_secret_ids = {
+    for key, secret_ref in local.pdb_source_container_admin_password_secret_id_inputs : key => secret_ref == "" ? null : (can(regex("^ocid1\\.vaultsecret\\.", secret_ref)) ? secret_ref : try(trimspace(var.secrets_dependency[secret_ref].id), null))
+  }
+  pdb_tde_wallet_password_secret_ids = {
+    for key, secret_ref in local.pdb_tde_wallet_password_secret_id_inputs : key => secret_ref == "" ? null : (can(regex("^ocid1\\.vaultsecret\\.", secret_ref)) ? secret_ref : try(trimspace(var.secrets_dependency[secret_ref].id), null))
+  }
+
+  pdb_container_admin_passwords = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.container_database_admin_password) > 0, false) ? pdb.container_database_admin_password : try(base64decode(data.oci_secrets_secretbundle.pdb_container_admin_password[key].secret_bundle_content[0].content), null))
+  }
+  pdb_admin_passwords = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.pdb_admin_password) > 0, false) ? pdb.pdb_admin_password : try(base64decode(data.oci_secrets_secretbundle.pdb_admin_password[key].secret_bundle_content[0].content), null))
+  }
+  pdb_dblink_user_passwords = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.pdb_creation_type_details.dblink_user_password) > 0, false) ? pdb.pdb_creation_type_details.dblink_user_password : try(base64decode(data.oci_secrets_secretbundle.pdb_dblink_user_password[key].secret_bundle_content[0].content), null))
+  }
+  pdb_source_container_admin_passwords = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.pdb_creation_type_details.source_container_database_admin_password) > 0, false) ? pdb.pdb_creation_type_details.source_container_database_admin_password : try(base64decode(data.oci_secrets_secretbundle.pdb_source_container_admin_password[key].secret_bundle_content[0].content), null))
+  }
+  pdb_tde_wallet_passwords = {
+    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.tde_wallet_password) > 0, false) ? pdb.tde_wallet_password : try(base64decode(data.oci_secrets_secretbundle.pdb_tde_wallet_password[key].secret_bundle_content[0].content), null))
+  }
+
   # Resolve references and defaults for pluggable database creation
   pluggable_databases = {
     for key, pdb in coalesce(var.pluggable_databases_configuration, {}) :
@@ -9,12 +57,93 @@ locals {
       source_pluggable_database_id_input = try(pdb.pdb_creation_type_details.source_pluggable_database_id, null)
       container_database_id              = can(regex("^ocid1\\.database\\.", pdb.container_database_id)) ? pdb.container_database_id : try(oci_database_database.these[pdb.container_database_id].id, local.legacy_inline_database_resources[pdb.container_database_id].id, var.database_dependency.databases[pdb.container_database_id].id, null)
       pdb_creation_type_details = try(pdb.pdb_creation_type_details, null) != null ? merge(pdb.pdb_creation_type_details, {
-        source_pluggable_database_id = can(regex("^ocid1\\.", pdb.pdb_creation_type_details.source_pluggable_database_id)) ? pdb.pdb_creation_type_details.source_pluggable_database_id : try(var.database_dependency.pluggable_databases[pdb.pdb_creation_type_details.source_pluggable_database_id].id, null)
+        source_pluggable_database_id             = can(regex("^ocid1\\.", pdb.pdb_creation_type_details.source_pluggable_database_id)) ? pdb.pdb_creation_type_details.source_pluggable_database_id : try(var.database_dependency.pluggable_databases[pdb.pdb_creation_type_details.source_pluggable_database_id].id, null)
+        dblink_user_password                     = local.pdb_dblink_user_passwords[key]
+        source_container_database_admin_password = local.pdb_source_container_admin_passwords[key]
       }) : null
+      container_database_admin_password = local.pdb_container_admin_passwords[key]
+      pdb_admin_password                = local.pdb_admin_passwords[key]
+      tde_wallet_password               = local.pdb_tde_wallet_passwords[key]
       # Tag defaults
       defined_tags  = coalesce(try(pdb.defined_tags, null), var.default_defined_tags)
       freeform_tags = coalesce(try(pdb.freeform_tags, null), var.default_freeform_tags)
     })
+  }
+}
+
+data "oci_secrets_secretbundle" "pdb_container_admin_password" {
+  for_each  = { for key, ref in local.pdb_container_admin_password_secret_id_inputs : key => local.pdb_container_admin_password_secret_ids[key] if ref != "" }
+  secret_id = each.value
+  stage     = "CURRENT"
+  lifecycle {
+    precondition {
+      condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
+      error_message = "container_database_admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
+    }
+    postcondition {
+      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
+      error_message = "The current container database admin password secret content must be nonempty valid Base64."
+    }
+  }
+}
+data "oci_secrets_secretbundle" "pdb_admin_password" {
+  for_each  = { for key, ref in local.pdb_admin_password_secret_id_inputs : key => local.pdb_admin_password_secret_ids[key] if ref != "" }
+  secret_id = each.value
+  stage     = "CURRENT"
+  lifecycle {
+    precondition {
+      condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
+      error_message = "pdb_admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
+    }
+    postcondition {
+      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
+      error_message = "The current PDB admin password secret content must be nonempty valid Base64."
+    }
+  }
+}
+data "oci_secrets_secretbundle" "pdb_dblink_user_password" {
+  for_each  = { for key, ref in local.pdb_dblink_user_password_secret_id_inputs : key => local.pdb_dblink_user_password_secret_ids[key] if ref != "" }
+  secret_id = each.value
+  stage     = "CURRENT"
+  lifecycle {
+    precondition {
+      condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
+      error_message = "dblink_user_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
+    }
+    postcondition {
+      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
+      error_message = "The current database-link password secret content must be nonempty valid Base64."
+    }
+  }
+}
+data "oci_secrets_secretbundle" "pdb_source_container_admin_password" {
+  for_each  = { for key, ref in local.pdb_source_container_admin_password_secret_id_inputs : key => local.pdb_source_container_admin_password_secret_ids[key] if ref != "" }
+  secret_id = each.value
+  stage     = "CURRENT"
+  lifecycle {
+    precondition {
+      condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
+      error_message = "source_container_database_admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
+    }
+    postcondition {
+      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
+      error_message = "The current source container admin password secret content must be nonempty valid Base64."
+    }
+  }
+}
+data "oci_secrets_secretbundle" "pdb_tde_wallet_password" {
+  for_each  = { for key, ref in local.pdb_tde_wallet_password_secret_id_inputs : key => local.pdb_tde_wallet_password_secret_ids[key] if ref != "" }
+  secret_id = each.value
+  stage     = "CURRENT"
+  lifecycle {
+    precondition {
+      condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
+      error_message = "tde_wallet_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
+    }
+    postcondition {
+      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
+      error_message = "The current TDE wallet password secret content must be nonempty valid Base64."
+    }
   }
 }
 
@@ -59,6 +188,34 @@ resource "oci_database_pluggable_database" "these" {
     precondition {
       condition     = each.value.source_pluggable_database_id_input == null ? true : (try(each.value.pdb_creation_type_details.source_pluggable_database_id, null) != null && can(regex("^ocid1\\.pluggabledatabase\\.", each.value.pdb_creation_type_details.source_pluggable_database_id)))
       error_message = "source_pluggable_database_id must be a pluggable database OCID or a key in database_dependency.pluggable_databases."
+    }
+
+    precondition {
+      condition = !try(length(var.pluggable_databases_configuration[each.key].pdb_admin_password) > 0, false) && local.pdb_admin_password_secret_id_inputs[each.key] == "" ? true : try(
+        length(nonsensitive(each.value.pdb_admin_password)) >= 9 &&
+        length(nonsensitive(each.value.pdb_admin_password)) <= 30 &&
+        can(regex("^[A-Za-z0-9#_-]+$", nonsensitive(each.value.pdb_admin_password))) &&
+        length(regexall("[A-Z]", nonsensitive(each.value.pdb_admin_password))) >= 2 &&
+        length(regexall("[a-z]", nonsensitive(each.value.pdb_admin_password))) >= 2 &&
+        length(regexall("[0-9]", nonsensitive(each.value.pdb_admin_password))) >= 2 &&
+        length(regexall("[#_-]", nonsensitive(each.value.pdb_admin_password))) >= 2,
+        false
+      )
+      error_message = "The resolved PDB admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
+    }
+
+    precondition {
+      condition = !try(length(var.pluggable_databases_configuration[each.key].tde_wallet_password) > 0, false) && local.pdb_tde_wallet_password_secret_id_inputs[each.key] == "" ? true : try(
+        length(nonsensitive(each.value.tde_wallet_password)) >= 9 &&
+        length(nonsensitive(each.value.tde_wallet_password)) <= 30 &&
+        can(regex("^[A-Za-z0-9#_-]+$", nonsensitive(each.value.tde_wallet_password))) &&
+        length(regexall("[A-Z]", nonsensitive(each.value.tde_wallet_password))) >= 2 &&
+        length(regexall("[a-z]", nonsensitive(each.value.tde_wallet_password))) >= 2 &&
+        length(regexall("[0-9]", nonsensitive(each.value.tde_wallet_password))) >= 2 &&
+        length(regexall("[#_-]", nonsensitive(each.value.tde_wallet_password))) >= 2,
+        false
+      )
+      error_message = "The resolved PDB TDE wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
     }
 
     ignore_changes = [

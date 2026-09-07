@@ -14,6 +14,7 @@ Check [module specification](./SPEC.md) for the complete typed contract, managed
   - [Cloud DB Homes](#cloud-db-homes)
   - [Databases](#databases)
   - [Pluggable Databases](#pluggable-databases)
+  - [Password Secrets](#password-secrets)
   - [External Dependencies](#external-dependencies)
 - [Outputs](#outputs)
 - [Upgrade from 1.1.0](#updating-from-110)
@@ -31,6 +32,7 @@ The module supports:
 - Pluggable Database
 - Dependency handoff for Exadata infrastructure, VM Clusters, DB Homes, CDBs, and PDBs.
 - Direct management of DB Homes, CDBs, and PDBs on externally managed VM Clusters.
+- Database passwords supplied as sensitive literals or retrieved from OCI Vault secrets.
 
 ## <a name="invoke">How to Invoke the Module</a>
 
@@ -91,6 +93,12 @@ Before deploying the Exadata Cloud Infrastructure, VM Cluster, Database Home, Da
   - [A **Service Gateway**](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/servicegateway.htm) — for private subnet access to Object Storage, or  
   - [An **Internet Gateway**](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/managingIGs.htm) — if using a public subnet.
 
+When any password uses a `*_secret_id` attribute, the identity applying the module also needs permission to read the OCI Vault secret bundle, for example:
+
+```
+Allow group <GROUP-NAME> to read secret-bundles in compartment <SECRETS-COMPARTMENT-NAME>
+```
+
 ## <a name="functioning">Module Functioning</a>
 The module accepts the following input variables:
 
@@ -102,7 +110,8 @@ The module accepts the following input variables:
 - exadata_database_dependency: An object containing externally managed Exadata Database resources this module may depend on.
 - kms_dependency: A map of objects containing externally managed encryption keys this module may depend on.
 - network_dependency: A map of objects containing the externally managed network resources this module may depend on.
-- recovery_service_dependency: A map of externally managed Autonomous Recovery Service protection policies this module may depend on. Pass either the ARS module `protection_policies` output directly, or an object containing a `protection_policies` map.
+- recovery_service_dependency: A map of externally managed Autonomous Recovery Service protection policies this module may depend on. Pass either the ARS module `autonomous_recovery_service_protection_policies` output directly, or an object containing a `protection_policies` map.
+- secrets_dependency: A map of externally managed OCI Vault secrets this module may depend on. Each entry contains an `id` with the secret OCID.
 - default_compartment_id: Default compartment OCID, tenancy OCID for the root compartment, or `compartments_dependency` key for all resources.
 - default_defined_tags: Default defined tags for all resources.
 - default_freeform_tags: Default freeform tags for all resources.
@@ -277,6 +286,37 @@ Each PDB Configuration object has the following attributes:
 - tde_wallet_password: The existing TDE wallet password of the CDB.
 
 `container_database_admin_password`, `pdb_admin_password`, and `tde_wallet_password` are sensitive creation-time values. OCI provenance tags are ignored; other defined tags and freeform tags remain managed. Changes to `container_database_id` remain visible in the Terraform plan.
+
+### <a name="password-secrets">Password Secrets</a>
+
+Every password consumed by the DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. The Common Database child module reads the `CURRENT` secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting password as sensitive before passing it to the OCI provider; the Exadata wrapper only passes the configuration and dependency map through unchanged.
+
+The supported pairs cover legacy inline CDB administration, backup TDE, encryption HSM, and TDE wallet passwords; standalone CDB administration, backup TDE, Data Guard administration, backup-destination VPC, encryption HSM, source TDE wallet, source-encryption HSM, and TDE wallet passwords; and PDB container administration, PDB administration, database-link, source-container administration, and TDE wallet passwords. In each case, append `_secret_id` to the literal password attribute name.
+
+The deprecated legacy inline `source_encryption_key_location_details` block remains accepted only for 1.1.0 input compatibility and is not consumed by the DB Home provider path; its fields therefore remain unmanaged.
+
+For every legacy inline CDB and standalone CDB, define exactly one of `admin_password` or `admin_password_secret_id`. When a standalone CDB uses `source = "DATAGUARD"`, also define exactly one of `database_admin_password` or `database_admin_password_secret_id`, and exactly one of `source_tde_wallet_password` or `source_tde_wallet_password_secret_id`. For all other password pairs, define at most one. An empty literal is treated as absent. Password-policy validation applies equally to literal and Vault-backed administration and TDE wallet passwords.
+
+Prefer the `*_secret_id` attributes to avoid committing literal passwords to Git and to centralize rotation and audit activity in OCI Vault. Regardless of the source, Terraform retrieves the password and stores it in the Terraform state file. Treat the state as sensitive data and protect it with an encrypted backend and appropriately restricted access.
+
+```hcl
+secrets_dependency = {
+  DATABASE-ADMIN = {
+    id = "ocid1.vaultsecret.oc1..example"
+  }
+}
+
+databases_configuration = {
+  application = {
+    db_home_id = "database-home"
+    source     = "NONE"
+    database = {
+      admin_password_secret_id = "DATABASE-ADMIN"
+      db_name                  = "APPCDB"
+    }
+  }
+}
+```
 
 ## Outputs
 The module keeps the raw resource outputs for direct module compatibility and also publishes `cloud_exadata_database_resources` for downstream dependency consumption. Raw DB Home, database, and pluggable database outputs are sensitive because they can include password-backed attributes. The `cloud_exadata_database_resources` output contains minimal maps for Exadata infrastructures, VM clusters, DB homes, databases, and pluggable databases.

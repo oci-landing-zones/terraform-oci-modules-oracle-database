@@ -4,7 +4,7 @@
 
 This module manages Autonomous Databases and related resources in Oracle Cloud Infrastructure (OCI). Autonomous Database is a fully-managed, secure, and highly available database service that automates database management, tuning, and security.
 
-The module supports bringing in external dependencies that managed resources depend on, including compartments, subnets, network security groups, vaults and encryption keys.
+The module supports bringing in external dependencies that managed resources depend on, including compartments, subnets, network security groups, secrets, vaults and encryption keys.
 This module does not deploy Autonomous VM Clusters or Autonomous Container Databases. It deploys Autonomous Databases on shared/serverless infrastructure or inside an existing Autonomous Container Database.
 
 Check [module specification](./SPEC.md) for a full description of module requirements, supported variables, managed resources and outputs.
@@ -28,7 +28,7 @@ The following features are currently supported by the module:
 - Network access control using private endpoints and whitelisted IPs.
 - Transparent data encryption using customer-managed keys.
 - Integration with IAM policies and dynamic groups
-- Support for external dependencies (compartments, subnets, network security groups, vaults and keys)
+- Support for external dependencies (compartments, subnets, network security groups, secrets, vaults and keys)
 
 ## <a name="requirements">Requirements</a>
 ### Terraform version >= 1.3.0
@@ -44,9 +44,12 @@ Allow group <GROUP-NAME> to manage autonomous-database-family in compartment <AD
 Allow group <GROUP-NAME> to use subnets in compartment <NETWORK-COMPARTMENT-NAME>
 Allow group <GROUP-NAME> to use network-security-groups in compartment <NETWORK-COMPARTMENT-NAME>
 Allow group <GROUP-NAME> to use keys in compartment <KMS-COMPARTMENT-NAME>
+Allow group <GROUP-NAME> to read secret-bundles in compartment <SECRETS-COMPARTMENT-NAME>
 Allow group <GROUP-NAME> to manage dynamic-groups in tenancy
 Allow group <GROUP-NAME> to manage policies in tenancy
 ```
+
+The secret-bundle permission is required only when an Autonomous Database sets **admin_password_secret_id**.
 
 Note: When deploying ADB Dedicated, TDE is inherited from the existing Autonomous Container Database. If that container database is managed by an existing Core LZ, review the container database key policy outside this module. In \<service_label\>-top-cmp, edit \<service_label\>-database-dynamic-group-policy, change
 ```
@@ -68,6 +71,7 @@ For local use, set `source` to the module path:
 module "autonomous_database" {
   source = "../.."
   autonomous_databases_configuration = var.autonomous_databases_configuration
+  secrets_dependency                 = var.secrets_dependency
   tenancy_ocid                       = var.tenancy_ocid
   providers = {
     oci      = oci
@@ -82,6 +86,7 @@ For remote use, refer to this module directory in the repository:
 module "autonomous_database" {
   source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//autonomous-database?ref=v1.2.0"
   autonomous_databases_configuration = var.autonomous_databases_configuration
+  secrets_dependency                 = var.secrets_dependency
   tenancy_ocid                       = var.tenancy_ocid
   providers = {
     oci      = oci
@@ -116,7 +121,13 @@ The databases themselves are defined within the **databases** attribute. In Terr
 - **ecpu_count**: (Optional) The number of eCPU cores. Default is 2.
 - **dw_storage_size_in_tbs**: (Optional) The storage size in Terabytes for workloads of type "DW". Default is 1.
 - **non_dw_storage_size_in_gbs**: (Optional) The storage size in Gigabytes for workloads other than "DW". Default is 32. For "DW" workloads, use *dw_storage_size_in_tbs*.
-- **admin_password**: The database admin password.
+- **admin_password**: (Optional) Literal database administrator password. The module marks the value as sensitive.
+- **admin_password_secret_id**: (Optional) OCI Vault secret OCID or *secrets_dependency* key containing the database administrator password. The module reads the current secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting value as sensitive.
+
+Define exactly one of **admin_password** or **admin_password_secret_id** for each Autonomous Database. An empty literal is treated as absent.
+
+Prefer **admin_password_secret_id** to avoid committing a literal password to Git and to centralize password rotation and audit activity in OCI Vault. Regardless of the source, Terraform retrieves the password and stores it in the Terraform state file. Treat the state as sensitive data and protect it with an encrypted backend and appropriately restricted access.
+
 - **is_free_tier**: (Optional) Indicates whether the database is an Always Free resource. Always Free Autonomous Databases have 1 CPU and 20GB of memory. Memory and CPU cannot be scaled. Default is false.
 - **is_dev_tier**: (Optional) Indicates whether the database is for developer to build and test applications. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. Default is false.
 - **license_model**: (Optional) The license model ("LICENSE_INCLUDED", "BRING_YOUR_OWN_LICENSE"). Default is "LICENSE_INCLUDED".
@@ -176,6 +187,18 @@ Example:
   }
 }
 ```
+
+- **secrets_dependency**: A map of externally managed OCI Vault secrets. Each object must contain an *id* attribute with the secret OCID. Use a map key as *admin_password_secret_id* to avoid placing the literal OCID in each database configuration.
+
+Example:
+```hcl
+secrets_dependency = {
+  "ADB-PASSWORD" = {
+    id = "ocid1.vaultsecret.oc1..example"
+  }
+}
+```
+
 - **vaults_dependency**: A map of objects containing externally managed vaults. All map objects must have the same type and must contain at least an *id* attribute with the vault OCID. Use this dependency for *security.tde.existing_oci_vault_id*. The legacy 1.1.0 pattern of storing vault OCIDs in *kms_dependency* is deprecated and kept only as a temporary upgrade fallback.
 
 Example:

@@ -60,6 +60,14 @@ variable "recovery_service_dependency" {
   default     = null
 }
 
+variable "secrets_dependency" {
+  description = "A map of objects containing externally managed OCI secrets this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the secret OCID) of string type."
+  type = map(object({
+    id = string
+  }))
+  default = null
+}
+
 variable "default_defined_tags" {
   description = "Default defined tags for all resources."
   type        = map(string)
@@ -91,12 +99,14 @@ variable "cloud_db_homes_configuration" {
     source                      = optional(string, "VM_CLUSTER_NEW") # Valid values: "NONE", "DB_BACKUP", "VM_CLUSTER_NEW"
     vm_cluster_id               = optional(string)
     database = optional(map(object({
-      admin_password             = string
-      backup_id                  = optional(string)
-      backup_tde_password        = optional(string)
-      character_set              = optional(string)
-      database_id                = optional(string)
-      database_software_image_id = optional(string)
+      admin_password                = optional(string)
+      admin_password_secret_id      = optional(string)
+      backup_id                     = optional(string)
+      backup_tde_password           = optional(string)
+      backup_tde_password_secret_id = optional(string)
+      character_set                 = optional(string)
+      database_id                   = optional(string)
+      database_software_image_id    = optional(string)
       db_backup_config = optional(map(object({
         auto_backup_enabled     = optional(bool)
         auto_backup_window      = optional(string)
@@ -120,6 +130,7 @@ variable "cloud_db_homes_configuration" {
         provider_type           = string
         azure_encryption_key_id = optional(string)
         hsm_password            = optional(string)
+        hsm_password_secret_id  = optional(string)
       })))
       freeform_tags       = optional(map(string))
       key_store_id        = optional(string)
@@ -135,6 +146,7 @@ variable "cloud_db_homes_configuration" {
         hsm_password            = optional(string)
       })))
       tde_wallet_password                   = optional(string)
+      tde_wallet_password_secret_id         = optional(string)
       time_stamp_for_point_in_time_recovery = optional(string)
       vault_id                              = optional(string)
     })))
@@ -167,13 +179,38 @@ variable "cloud_db_homes_configuration" {
     condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
       for k, v in var.cloud_db_homes_configuration :
       [for dk, dv in coalesce(v.database, {}) :
-        dv.admin_password == null ? true : (
+        try(length(dv.admin_password) > 0, false) != try(length(trimspace(dv.admin_password_secret_id)) > 0, false)
+      ]
+    ]))
+    error_message = "Each legacy inline database must define exactly one of admin_password or admin_password_secret_id."
+  }
+
+  validation {
+    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
+      for k, v in var.cloud_db_homes_configuration : [
+        for dk, dv in coalesce(v.database, {}) : concat([
+          !(try(length(dv.backup_tde_password) > 0, false) && try(length(trimspace(dv.backup_tde_password_secret_id)) > 0, false)),
+          !(try(length(dv.tde_wallet_password) > 0, false) && try(length(trimspace(dv.tde_wallet_password_secret_id)) > 0, false))
+          ], [
+          for detail in values(coalesce(dv.encryption_key_location_details, {})) :
+          !(try(length(detail.hsm_password) > 0, false) && try(length(trimspace(detail.hsm_password_secret_id)) > 0, false))
+        ])
+      ]
+    ]))
+    error_message = "Each optional legacy inline database password must define at most one of its literal value or corresponding secret_id."
+  }
+
+  validation {
+    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
+      for k, v in var.cloud_db_homes_configuration :
+      [for dk, dv in coalesce(v.database, {}) :
+        try(length(dv.admin_password) > 0, false) ? (
           (can(regex("^[A-Za-z0-9#_-]{9,30}$", dv.admin_password))) &&
           (length(regexall("[A-Z]", dv.admin_password)) >= 2) &&
           (length(regexall("[a-z]", dv.admin_password)) >= 2) &&
           (length(regexall("[0-9]", dv.admin_password)) >= 2) &&
           (length(regexall("[#_-]", dv.admin_password)) >= 2)
-        )
+        ) : true
       ]
     ]))
     error_message = "The admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
@@ -183,13 +220,13 @@ variable "cloud_db_homes_configuration" {
     condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
       for k, v in var.cloud_db_homes_configuration :
       [for dk, dv in coalesce(v.database, {}) :
-        dv.tde_wallet_password == null ? true : (
+        try(length(dv.tde_wallet_password) > 0, false) ? (
           (can(regex("^[A-Za-z0-9#_-]{9,30}$", dv.tde_wallet_password))) &&
           (length(regexall("[A-Z]", dv.tde_wallet_password)) >= 2) &&
           (length(regexall("[a-z]", dv.tde_wallet_password)) >= 2) &&
           (length(regexall("[0-9]", dv.tde_wallet_password)) >= 2) &&
           (length(regexall("[#_-]", dv.tde_wallet_password)) >= 2)
-        )
+        ) : true
       ]
     ]))
     error_message = "The tde wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
@@ -202,14 +239,17 @@ variable "databases_configuration" {
   default     = null
   type = map(object({
     database = object({
-      admin_password             = string #sensitive
-      db_name                    = string
-      backup_id                  = optional(string) # For restore
-      backup_tde_password        = optional(string)
-      character_set              = optional(string)
-      database_admin_password    = optional(string) # For when source=DATAGUARD
-      database_id                = optional(string)
-      database_software_image_id = optional(string)
+      admin_password                    = optional(string) # sensitive
+      admin_password_secret_id          = optional(string)
+      db_name                           = string
+      backup_id                         = optional(string) # For restore
+      backup_tde_password               = optional(string)
+      backup_tde_password_secret_id     = optional(string)
+      character_set                     = optional(string)
+      database_admin_password           = optional(string) # For when source=DATAGUARD
+      database_admin_password_secret_id = optional(string)
+      database_id                       = optional(string)
+      database_software_image_id        = optional(string)
       db_backup_config = optional(object({
         auto_backup_enabled     = optional(bool)
         auto_backup_window      = optional(string)
@@ -217,13 +257,14 @@ variable "databases_configuration" {
         auto_full_backup_window = optional(string)
         backup_deletion_policy  = optional(string)
         backup_destination_details = optional(object({
-          dbrs_policy_id = optional(string)
-          id             = optional(string)
-          is_remote      = optional(bool)
-          remote_region  = optional(string)
-          type           = optional(string)
-          vpc_password   = optional(string)
-          vpc_user       = optional(string)
+          dbrs_policy_id         = optional(string)
+          id                     = optional(string)
+          is_remote              = optional(bool)
+          remote_region          = optional(string)
+          type                   = optional(string)
+          vpc_password           = optional(string)
+          vpc_password_secret_id = optional(string)
+          vpc_user               = optional(string)
         }))
         recovery_window_in_days   = optional(number)
         run_immediate_full_backup = optional(bool)
@@ -235,6 +276,7 @@ variable "databases_configuration" {
         provider_type           = string
         azure_encryption_key_id = optional(string)
         hsm_password            = optional(string)
+        hsm_password_secret_id  = optional(string)
       }))
       freeform_tags                          = optional(map(string))
       key_store_id                           = optional(string)
@@ -248,8 +290,10 @@ variable "databases_configuration" {
       sid_prefix                             = optional(string)
       source_database_id                     = optional(string)
       source_tde_wallet_password             = optional(string)
-      source_encryption_key_location_details = optional(map(string)) # Supported keys: provider_type, hsm_password
+      source_tde_wallet_password_secret_id   = optional(string)
+      source_encryption_key_location_details = optional(map(string)) # Supported keys: provider_type, hsm_password, hsm_password_secret_id
       tde_wallet_password                    = optional(string)
+      tde_wallet_password_secret_id          = optional(string)
       time_stamp_for_point_in_time_recovery  = optional(string)
       transport_type                         = optional(string)
       vault_id                               = optional(string)
@@ -300,15 +344,38 @@ variable "databases_configuration" {
   validation {
     condition = var.databases_configuration == null ? true : alltrue([
       for k, v in var.databases_configuration :
+      try(length(v.database.admin_password) > 0, false) != try(length(trimspace(v.database.admin_password_secret_id)) > 0, false)
+    ])
+    error_message = "Each database must define exactly one of admin_password or admin_password_secret_id."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue(flatten([
+      for k, v in var.databases_configuration : [
+        !(try(length(v.database.backup_tde_password) > 0, false) && try(length(trimspace(v.database.backup_tde_password_secret_id)) > 0, false)),
+        !(try(length(v.database.database_admin_password) > 0, false) && try(length(trimspace(v.database.database_admin_password_secret_id)) > 0, false)),
+        !(try(length(v.database.db_backup_config.backup_destination_details.vpc_password) > 0, false) && try(length(trimspace(v.database.db_backup_config.backup_destination_details.vpc_password_secret_id)) > 0, false)),
+        !(try(length(v.database.encryption_key_location_details.hsm_password) > 0, false) && try(length(trimspace(v.database.encryption_key_location_details.hsm_password_secret_id)) > 0, false)),
+        !(try(length(v.database.source_tde_wallet_password) > 0, false) && try(length(trimspace(v.database.source_tde_wallet_password_secret_id)) > 0, false)),
+        !(try(length(v.database.source_encryption_key_location_details["hsm_password"]) > 0, false) && try(length(trimspace(v.database.source_encryption_key_location_details["hsm_password_secret_id"])) > 0, false)),
+        !(try(length(v.database.tde_wallet_password) > 0, false) && try(length(trimspace(v.database.tde_wallet_password_secret_id)) > 0, false))
+      ]
+    ]))
+    error_message = "Each optional database password must define at most one of its literal value or corresponding secret_id."
+  }
+
+  validation {
+    condition = var.databases_configuration == null ? true : alltrue([
+      for k, v in var.databases_configuration :
       v.source != "DATAGUARD" ? true : (
-        try(length(trimspace(v.database.database_admin_password)) > 0, false) &&
+        (try(length(v.database.database_admin_password) > 0, false) != try(length(trimspace(v.database.database_admin_password_secret_id)) > 0, false)) &&
         try(length(trimspace(v.database.protection_mode)) > 0, false) &&
         try(length(trimspace(v.database.source_database_id)) > 0, false) &&
-        try(length(trimspace(v.database.source_tde_wallet_password)) > 0, false) &&
+        (try(length(v.database.source_tde_wallet_password) > 0, false) != try(length(trimspace(v.database.source_tde_wallet_password_secret_id)) > 0, false)) &&
         try(length(trimspace(v.database.transport_type)) > 0, false)
       )
     ])
-    error_message = "database_admin_password, protection_mode, source_database_id, source_tde_wallet_password, and transport_type are required when database source is DATAGUARD."
+    error_message = "A database_admin_password value or secret reference, protection_mode, source_database_id, a source_tde_wallet_password value or secret reference, and transport_type are required when database source is DATAGUARD."
   }
 
   validation {
@@ -334,11 +401,11 @@ variable "databases_configuration" {
         contains(keys(v.database.source_encryption_key_location_details), "provider_type") &&
         alltrue([
           for detail_key in keys(v.database.source_encryption_key_location_details) :
-          contains(["provider_type", "hsm_password"], detail_key)
+          contains(["provider_type", "hsm_password", "hsm_password_secret_id"], detail_key)
         ])
       )
     ])
-    error_message = "source_encryption_key_location_details supports only provider_type and hsm_password. provider_type is required."
+    error_message = "source_encryption_key_location_details supports only provider_type, hsm_password, and hsm_password_secret_id. provider_type is required."
   }
   validation {
     condition = var.databases_configuration == null ? true : alltrue([
@@ -350,13 +417,13 @@ variable "databases_configuration" {
   validation {
     condition = var.databases_configuration == null ? true : alltrue([
       for k, v in var.databases_configuration :
-      v.database.admin_password == null ? true : (
+      try(length(v.database.admin_password) > 0, false) ? (
         (can(regex("^[A-Za-z0-9#_-]{9,30}$", v.database.admin_password))) &&
         (length(regexall("[A-Z]", v.database.admin_password)) >= 2) &&
         (length(regexall("[a-z]", v.database.admin_password)) >= 2) &&
         (length(regexall("[0-9]", v.database.admin_password)) >= 2) &&
         (length(regexall("[#_-]", v.database.admin_password)) >= 2)
-      )
+      ) : true
     ])
     error_message = "The admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
   }
@@ -364,13 +431,13 @@ variable "databases_configuration" {
   validation {
     condition = var.databases_configuration == null ? true : alltrue([
       for k, v in var.databases_configuration :
-      v.database.tde_wallet_password == null ? true : (
+      try(length(v.database.tde_wallet_password) > 0, false) ? (
         (can(regex("^[A-Za-z0-9#_-]{9,30}$", v.database.tde_wallet_password))) &&
         (length(regexall("[A-Z]", v.database.tde_wallet_password)) >= 2) &&
         (length(regexall("[a-z]", v.database.tde_wallet_password)) >= 2) &&
         (length(regexall("[0-9]", v.database.tde_wallet_password)) >= 2) &&
         (length(regexall("[#_-]", v.database.tde_wallet_password)) >= 2)
-      )
+      ) : true
     ])
     error_message = "The tde wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
   }
@@ -383,25 +450,30 @@ variable "pluggable_databases_configuration" {
     container_database_id = string # Literal OCID, local database key, or database_dependency key
     pdb_name              = string
 
-    container_database_admin_password = optional(string) # Sensitive
-    defined_tags                      = optional(map(string))
-    freeform_tags                     = optional(map(string))
-    kms_key_version_id                = optional(string)
-    pdb_admin_password                = optional(string) # Sensitive
+    container_database_admin_password           = optional(string) # Sensitive
+    container_database_admin_password_secret_id = optional(string)
+    defined_tags                                = optional(map(string))
+    freeform_tags                               = optional(map(string))
+    kms_key_version_id                          = optional(string)
+    pdb_admin_password                          = optional(string) # Sensitive
+    pdb_admin_password_secret_id                = optional(string)
     pdb_creation_type_details = optional(object({
-      creation_type                = string
-      source_pluggable_database_id = string
-      dblink_user_password         = optional(string)
-      dblink_username              = optional(string)
-      is_thin_clone                = optional(bool)
+      creation_type                  = string
+      source_pluggable_database_id   = string
+      dblink_user_password           = optional(string)
+      dblink_user_password_secret_id = optional(string)
+      dblink_username                = optional(string)
+      is_thin_clone                  = optional(bool)
       refreshable_clone_details = optional(object({
         is_refreshable_clone = optional(bool)
       }))
-      source_container_database_admin_password = optional(string) # Sensitive
+      source_container_database_admin_password           = optional(string) # Sensitive
+      source_container_database_admin_password_secret_id = optional(string)
     }))
     should_create_pdb_backup           = optional(bool)
     should_pdb_admin_account_be_locked = optional(bool)
     tde_wallet_password                = optional(string)
+    tde_wallet_password_secret_id      = optional(string)
   }))
   validation {
     condition = var.pluggable_databases_configuration == null ? true : alltrue([
@@ -412,15 +484,28 @@ variable "pluggable_databases_configuration" {
   }
 
   validation {
+    condition = var.pluggable_databases_configuration == null ? true : alltrue(flatten([
+      for k, v in var.pluggable_databases_configuration : [
+        !(try(length(v.container_database_admin_password) > 0, false) && try(length(trimspace(v.container_database_admin_password_secret_id)) > 0, false)),
+        !(try(length(v.pdb_admin_password) > 0, false) && try(length(trimspace(v.pdb_admin_password_secret_id)) > 0, false)),
+        !(try(length(v.pdb_creation_type_details.dblink_user_password) > 0, false) && try(length(trimspace(v.pdb_creation_type_details.dblink_user_password_secret_id)) > 0, false)),
+        !(try(length(v.pdb_creation_type_details.source_container_database_admin_password) > 0, false) && try(length(trimspace(v.pdb_creation_type_details.source_container_database_admin_password_secret_id)) > 0, false)),
+        !(try(length(v.tde_wallet_password) > 0, false) && try(length(trimspace(v.tde_wallet_password_secret_id)) > 0, false))
+      ]
+    ]))
+    error_message = "Each optional pluggable database password must define at most one of its literal value or corresponding secret_id."
+  }
+
+  validation {
     condition = var.pluggable_databases_configuration == null ? true : alltrue([
       for k, v in var.pluggable_databases_configuration :
-      v.pdb_admin_password == null ? true : (
+      try(length(v.pdb_admin_password) > 0, false) ? (
         (can(regex("^[A-Za-z0-9#_-]{9,30}$", v.pdb_admin_password))) &&
         (length(regexall("[A-Z]", v.pdb_admin_password)) >= 2) &&
         (length(regexall("[a-z]", v.pdb_admin_password)) >= 2) &&
         (length(regexall("[0-9]", v.pdb_admin_password)) >= 2) &&
         (length(regexall("[#_-]", v.pdb_admin_password)) >= 2)
-      )
+      ) : true
     ])
     error_message = "The pdb admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
   }
@@ -428,13 +513,13 @@ variable "pluggable_databases_configuration" {
   validation {
     condition = var.pluggable_databases_configuration == null ? true : alltrue([
       for k, v in var.pluggable_databases_configuration :
-      v.tde_wallet_password == null ? true : (
+      try(length(v.tde_wallet_password) > 0, false) ? (
         (can(regex("^[A-Za-z0-9#_-]{9,30}$", v.tde_wallet_password))) &&
         (length(regexall("[A-Z]", v.tde_wallet_password)) >= 2) &&
         (length(regexall("[a-z]", v.tde_wallet_password)) >= 2) &&
         (length(regexall("[0-9]", v.tde_wallet_password)) >= 2) &&
         (length(regexall("[#_-]", v.tde_wallet_password)) >= 2)
-      )
+      ) : true
     ])
     error_message = "The tde wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
   }

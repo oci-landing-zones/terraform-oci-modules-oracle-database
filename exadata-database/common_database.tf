@@ -26,6 +26,7 @@ module "common_database" {
   vm_cluster_dependency             = local.common_database_vm_cluster_dependency
   kms_dependency                    = var.kms_dependency
   recovery_service_dependency       = var.recovery_service_dependency
+  secrets_dependency                = var.secrets_dependency
   default_defined_tags              = var.default_defined_tags
   default_freeform_tags             = var.default_freeform_tags
   cloud_db_homes_configuration      = var.cloud_db_homes_configuration

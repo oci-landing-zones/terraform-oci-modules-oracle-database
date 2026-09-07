@@ -15,6 +15,7 @@ Check [module specification](./SPEC.md) for the complete typed contract, managed
   - [Database Homes](#database-homes)
   - [Container Databases](#container-databases)
   - [Pluggable Databases](#pluggable-databases)
+  - [Password Secrets](#password-secrets)
   - [External Dependencies](#external-dependencies)
   - [Outputs](#outputs)
 - [Related Documentation](#related)
@@ -27,6 +28,7 @@ The module supports:
 - Database Homes on existing Cloud VM Clusters or DB Systems.
 - Standalone Container Databases and additional Pluggable Databases.
 - Logical-key or literal-OCID references to locally managed and external DB Homes, CDBs, PDBs, VM Clusters, DB Systems, KMS keys, and Recovery Service protection policies.
+- Database passwords supplied as sensitive literals or retrieved from OCI Vault secrets.
 - Default and per-resource defined and freeform tags.
 - Sensitive raw resource outputs and minimal ID-only dependency outputs for downstream stacks.
 
@@ -34,7 +36,11 @@ The module supports:
 
 ### Terraform version >= 1.3.0
 
-The module requires Terraform 1.3.0 or later and the default `oci` provider configuration. The identity applying the module needs OCI permissions to manage the selected Database Service resources and to use the referenced VM Cluster, DB System, encryption keys, and Recovery Service protection policies.
+The module requires Terraform 1.3.0 or later and the default `oci` provider configuration. The identity applying the module needs OCI permissions to manage the selected Database Service resources and to use the referenced VM Cluster, DB System, encryption keys, and Recovery Service protection policies. When any password uses a `*_secret_id` attribute, the identity also needs permission to read the secret bundle, for example:
+
+```
+Allow group <GROUP-NAME> to read secret-bundles in compartment <SECRETS-COMPARTMENT-NAME>
+```
 
 ## <a name="invoke">How to Invoke the Module</a>
 
@@ -50,6 +56,7 @@ module "common_database" {
   databases_configuration           = var.databases_configuration
   pluggable_databases_configuration = var.pluggable_databases_configuration
   vm_cluster_dependency             = var.vm_cluster_dependency
+  secrets_dependency                = var.secrets_dependency
 }
 ```
 
@@ -63,6 +70,7 @@ module "common_database" {
   databases_configuration           = var.databases_configuration
   pluggable_databases_configuration = var.pluggable_databases_configuration
   vm_cluster_dependency             = var.vm_cluster_dependency
+  secrets_dependency                = var.secrets_dependency
 }
 ```
 
@@ -98,6 +106,37 @@ Each `pluggable_databases_configuration` entry creates a PDB. Its `container_dat
 
 `container_database_admin_password`, `pdb_admin_password`, and `tde_wallet_password` are sensitive creation-time values. OCI provenance tags are ignored, while customer-defined and freeform tags remain managed.
 
+### <a name="password-secrets">Password Secrets</a>
+
+Every password consumed by the managed DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. The module reads the `CURRENT` secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting password as sensitive before passing it to the OCI provider.
+
+The supported pairs cover legacy inline CDB administration, backup TDE, encryption HSM, and TDE wallet passwords; standalone CDB administration, backup TDE, Data Guard administration, backup-destination VPC, encryption HSM, source TDE wallet, source-encryption HSM, and TDE wallet passwords; and PDB container administration, PDB administration, database-link, source-container administration, and TDE wallet passwords. In each case, append `_secret_id` to the literal password attribute name.
+
+The deprecated legacy inline `source_encryption_key_location_details` block remains accepted only for 1.1.0 input compatibility and is not consumed by the DB Home provider path; its fields therefore remain unmanaged.
+
+For every legacy inline CDB and standalone CDB, define exactly one of `admin_password` or `admin_password_secret_id`. When a standalone CDB uses `source = "DATAGUARD"`, also define exactly one of `database_admin_password` or `database_admin_password_secret_id`, and exactly one of `source_tde_wallet_password` or `source_tde_wallet_password_secret_id`. For all other password pairs, define at most one. An empty literal is treated as absent. Password-policy validation applies equally to literal and Vault-backed administration and TDE wallet passwords.
+
+Prefer the `*_secret_id` attributes to avoid committing literal passwords to Git and to centralize rotation and audit activity in OCI Vault. Regardless of the source, Terraform retrieves the password and stores it in the Terraform state file. Treat the state as sensitive data and protect it with an encrypted backend and appropriately restricted access.
+
+```hcl
+secrets_dependency = {
+  DATABASE-ADMIN = {
+    id = "ocid1.vaultsecret.oc1..example"
+  }
+}
+
+databases_configuration = {
+  application = {
+    db_home_id = "database-home"
+    source     = "NONE"
+    database = {
+      admin_password_secret_id = "DATABASE-ADMIN"
+      db_name                  = "APPCDB"
+    }
+  }
+}
+```
+
 ### <a name="external-dependencies">External Dependencies</a>
 
 External dependencies let configuration values use stable map keys instead of literal OCIDs.
@@ -107,6 +146,7 @@ External dependencies let configuration values use stable map keys instead of li
 - `db_system_dependency`: External DB Systems.
 - `kms_dependency`: External encryption keys.
 - `recovery_service_dependency`: Recovery Service protection policies, supplied as a direct map or under `protection_policies`.
+- `secrets_dependency`: External OCI Vault secrets. Each entry contains an `id` with the secret OCID.
 
 Use `database_resources` or `database_dependency` from a producing Common Database module as the corresponding `database_dependency` input of a downstream module.
 
