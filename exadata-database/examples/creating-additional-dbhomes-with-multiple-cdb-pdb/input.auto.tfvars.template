@@ -39,6 +39,28 @@ network_dependency = {
     "EXA-BACKUP-SUBNET-KEY" = { id = "<REPLACE-WITH-SUBNET-OCID>" }
   }
 }
+
+secrets_dependency = {
+  CDB1-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-CDB1-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  CDB1-TDE-WALLET-PASSWORD = {
+    id = "<REPLACE-WITH-CDB1-TDE-WALLET-PASSWORD-SECRET-OCID>"
+  }
+  CDB2-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-CDB2-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  CDB2-TDE-WALLET-PASSWORD = {
+    id = "<REPLACE-WITH-CDB2-TDE-WALLET-PASSWORD-SECRET-OCID>"
+  }
+  PDB1B-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-PDB1B-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+  PDB2B-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-PDB2B-ADMIN-PASSWORD-SECRET-OCID>"
+  }
+}
+
 default_compartment_id = "CMP-1"
 default_freeform_tags  = {}
 default_defined_tags   = {}
@@ -70,7 +92,7 @@ cloud_db_homes_configuration = {
 # ---------------------------------------
 # This is to create multiple Container Database(s) and Pluggable Database(s)
 # ---------------------------------------
-# The strong admin_password below satisfies the policy defined in variables.tf:
+# The passwords stored in the Vault secrets below must satisfy the module password policy:
 # - Length 9-30, at least 2 uppercase, 2 lowercase, 2 digits, 2 special chars from _, #, -
 # - Only allowed characters, and must not contain 'oracle' (or reverse), 'sys', 'system', 'metsys'
 databases_configuration = {
@@ -80,14 +102,14 @@ databases_configuration = {
     db_home_id     = "dbhome1"        # References the DB Home defined above (or a DB Home OCID)
     database = {
       # Required
-      admin_password = "<<Strong password>>"
-      db_name        = "CDB1"
+      admin_password_secret_id = "CDB1-ADMIN-PASSWORD"
+      db_name                  = "CDB1"
 
       #optional
       #backup_id = #<<Required when source=DB_BACKUP>>
-      #backup_tde_password = #<<Required when source=DB_BACKUP>>
+      #backup_tde_password_secret_id = "<<BACKUP-TDE-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>" # Required when source=DB_BACKUP.
       character_set  = "AL32UTF8"
-      #database_admin_password = #<<Required when source=DATAGUARD>>
+      #database_admin_password_secret_id = "<<DATABASE-ADMIN-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>" # Required when source=DATAGUARD.
       #database_software_image_id = #<<Optional value>>
       db_backup_config = {
         auto_backup_enabled = "true"
@@ -113,7 +135,7 @@ databases_configuration = {
       #encryption_key_location_details = {
       #  provider_type = "<<TYPE>>" #<<Types of providers supported for managing database encryption keys>>
       #  #azure_encryption_key_id = #<<The ID of the Azure Key Vault key.>>
-      #  hsm_password = "<<password>>" #<<The password of the HSM user.>>
+      #  hsm_password_secret_id = "<<HSM-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
       #}
       freeform_tags = {}
       #key_store_id = #<<The OCID of the key store of Oracle Vault.>>
@@ -130,11 +152,10 @@ databases_configuration = {
       #source_database_id = #<<(Required when source=DATAGUARD) The OCID of the source database.>>
       #source_encryption_key_location_details = {
       #  provider_type = "<<TYPE>>" #<<Types of providers supported for managing database encryption keys>>
-      #  #azure_encryption_key_id = #<<The ID of the Azure Key Vault key.>>
-      #  hsm_password = "<<password>>" #<<The password of the HSM user.>>
+      #  hsm_password_secret_id = "<<SOURCE-HSM-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
       #}
-      #source_tde_wallet_password = #<<(Required when source=DATAGUARD) The TDE wallet password of the source database specified by 'sourceDatabaseId'.>>
-      tde_wallet_password = "<<strong password>>"
+      #source_tde_wallet_password_secret_id = "<<SOURCE-TDE-WALLET-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>" # Required when source=DATAGUARD.
+      tde_wallet_password_secret_id = "CDB1-TDE-WALLET-PASSWORD"
       #transport_type = #<<(Required when source=DATAGUARD) The redo transport type to use for this Data Guard association>>
       #vault_id = #<<(Applicable when source=NONE) The OCID of the Oracle Cloud Infrastructure vault. This parameter and secretId are required for Customer Managed Keys.>> 
     }
@@ -149,14 +170,14 @@ databases_configuration = {
     db_home_id     = "dbhome1"        # References the DB Home defined above (or a DB Home OCID)
     database = {
       # Required
-      admin_password = "<<Strong password>>"
-      db_name        = "CDB2"
+      admin_password_secret_id = "CDB2-ADMIN-PASSWORD"
+      db_name                  = "CDB2"
 
       #optional
       #backup_id = #<<Required when source=DB_BACKUP>>
-      #backup_tde_password = #<<Required when source=DB_BACKUP>>
+      #backup_tde_password_secret_id = "<<BACKUP-TDE-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>" # Required when source=DB_BACKUP.
       character_set  = "AL32UTF8"
-      #database_admin_password = #<<Required when source=DATAGUARD>>
+      #database_admin_password_secret_id = "<<DATABASE-ADMIN-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>" # Required when source=DATAGUARD.
       #database_software_image_id = #<<Optional value>>
       db_backup_config = {
         auto_backup_enabled = "true"
@@ -182,7 +203,7 @@ databases_configuration = {
       #encryption_key_location_details = {
       #  provider_type = "<<TYPE>>" #<<Types of providers supported for managing database encryption keys>>
       #  #azure_encryption_key_id = #<<The ID of the Azure Key Vault key.>>
-      #  hsm_password = "<<password>>" #<<The password of the HSM user.>>
+      #  hsm_password_secret_id = "<<HSM-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
       #}
       freeform_tags = {}
       #key_store_id = #<<The OCID of the key store of Oracle Vault.>>
@@ -199,11 +220,10 @@ databases_configuration = {
       #source_database_id = #<<(Required when source=DATAGUARD) The OCID of the source database.>>
       #source_encryption_key_location_details = {
       #  provider_type = "<<TYPE>>" #<<Types of providers supported for managing database encryption keys>>
-      #  #azure_encryption_key_id = #<<The ID of the Azure Key Vault key.>>
-      #  hsm_password = "<<password>>" #<<The password of the HSM user.>>
+      #  hsm_password_secret_id = "<<SOURCE-HSM-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
       #}
-      #source_tde_wallet_password = #<<(Required when source=DATAGUARD) The TDE wallet password of the source database specified by 'sourceDatabaseId'.>>
-      tde_wallet_password = "<<strong password>>"
+      #source_tde_wallet_password_secret_id = "<<SOURCE-TDE-WALLET-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>" # Required when source=DATAGUARD.
+      tde_wallet_password_secret_id = "CDB2-TDE-WALLET-PASSWORD"
       #transport_type = #<<(Required when source=DATAGUARD) The redo transport type to use for this Data Guard association>>
       #vault_id = #<<(Applicable when source=NONE) The OCID of the Oracle Cloud Infrastructure vault. This parameter and secretId are required for Customer Managed Keys.>> 
     }
@@ -222,26 +242,26 @@ pluggable_databases_configuration= {
   PDB1B = {
      container_database_id = "CDB1" #<<Name or OCID>>
      pdb_name              = "PDB1B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
-     pdb_admin_password                = "<<strong password>>"
+     pdb_admin_password_secret_id      = "PDB1B-ADMIN-PASSWORD"
 
-     #container_database_admin_password = optional(string) # Sensitive
+     #container_database_admin_password_secret_id = "<<CDB-ADMIN-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
      defined_tags                      = {}
      freeform_tags                     = {}
      #kms_key_version_id                = #<<The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.>>
      #pdb_creation_type_details = {     # << Optional if the PDB is local or remote clone or relocate pdb>>
      #  creation_type                = 
      #  source_pluggable_database_id = 
-     #  dblink_user_password         = 
+     #  dblink_user_password_secret_id = "<<DBLINK-USER-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
      #  dblink_username              = 
      #  is_thin_clone                = 
      #  refreshable_clone_details = {
      #    is_refreshable_clone = 
      #  }
-     #  source_container_database_admin_password = # Sensitive
+     #  source_container_database_admin_password_secret_id = "<<SOURCE-CDB-ADMIN-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
      #}
      should_create_pdb_backup           = "false"
      should_pdb_admin_account_be_locked = "false"
-     tde_wallet_password                = "<<strong password>>" #The existing TDE wallet password of the CDB.
+     tde_wallet_password_secret_id      = "CDB1-TDE-WALLET-PASSWORD" # The existing TDE wallet password of the CDB.
    }
    # ---------------------------------------
 # Additional PDB(s) for CDB2
@@ -250,26 +270,26 @@ pluggable_databases_configuration= {
   PDB2B = {
      container_database_id = "CDB2" #<<Name or OCID>>
      pdb_name              = "PDB2B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
-     pdb_admin_password                = "<<strong password>>"
+     pdb_admin_password_secret_id      = "PDB2B-ADMIN-PASSWORD"
 
-     #container_database_admin_password = optional(string) # Sensitive
+     #container_database_admin_password_secret_id = "<<CDB-ADMIN-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
      defined_tags                      = {}
      freeform_tags                     = {}
      #kms_key_version_id                = #<<The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.>>
      #pdb_creation_type_details = {     # << Optional if the PDB is local or remote clone or relocate pdb>>
      #  creation_type                = 
      #  source_pluggable_database_id = 
-     #  dblink_user_password         = 
+     #  dblink_user_password_secret_id = "<<DBLINK-USER-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
      #  dblink_username              = 
      #  is_thin_clone                = 
      #  refreshable_clone_details = {
      #    is_refreshable_clone = 
      #  }
-     #  source_container_database_admin_password = # Sensitive
+     #  source_container_database_admin_password_secret_id = "<<SOURCE-CDB-ADMIN-PASSWORD-KEY-IN-SECRETS-DEPENDENCY>>"
      #}
      should_create_pdb_backup           = "false"
      should_pdb_admin_account_be_locked = "false"
-     tde_wallet_password                = "<<strong password>>" #The existing TDE wallet password of the CDB.
+     tde_wallet_password_secret_id      = "CDB2-TDE-WALLET-PASSWORD" # The existing TDE wallet password of the CDB.
    }
  }
  

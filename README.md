@@ -15,7 +15,9 @@ This repository contains Terraform OCI (Oracle Cloud Infrastructure) modules for
 
 Modules included in this repository:
 1. Exadata Database Services. [See more details](./exadata-database/README.md)
-2. Autonomous Database Services. [See more details](./autonomous-database/README.md)
+2. Common Database resources (Database Homes, container databases, and pluggable databases). [See more details](./common-database/README.md)
+3. Autonomous Database Services. [See more details](./autonomous-database/README.md)
+4. Autonomous Recovery Service. [See more details](./autonomous-recovery-service/README.md)
 
 
 ## <a name="modules-collection">OCI Landing Zones Modules Collection</a>

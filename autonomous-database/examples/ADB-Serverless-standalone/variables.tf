@@ -8,7 +8,9 @@ variable "fingerprint" { default = "" }
 variable "private_key_path" { default = "" }
 variable "private_key_password" { default = "" }
 variable "network_dependency" {}
-variable "kms_dependency" {}
+variable "secrets_dependency" { default = null }
+variable "vaults_dependency" { default = null }
+variable "kms_dependency" { default = null }
 
 variable "autonomous_databases_configuration" {
   description = "Autonomous databases configuration attributes."

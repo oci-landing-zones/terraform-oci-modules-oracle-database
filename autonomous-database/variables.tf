@@ -31,7 +31,8 @@ variable "autonomous_databases_configuration" {
       ecpu_count                  = optional(number, 2)   # 2 is the minimum count for ECPUs. For the same performance of 1 OCPU, the recommended ECPU count is 4. 
       dw_storage_size_in_tbs      = optional(number, 1)   # It is required for "DW" db_workload. Unit is terabytes.
       non_dw_storage_size_in_gbs  = optional(number, 32)  # Use this for all db_workloads, except "DW". Unit is gigabytes (minimum is 20GB). For "DW" use dw_storage_size_in_tbs.
-      admin_password              = string
+      admin_password              = optional(string)
+      admin_password_secret_id    = optional(string)
       character_set               = optional(string) # Default is "AL32UTF8"
       national_character_set      = optional(string) # Default is "AL16UTF16"
       backup_retention_in_days    = optional(number) # Retention period, in days, for long-term backups. For ADB-D, this is determined by the value set at Autonomous Container Database
@@ -48,7 +49,7 @@ variable "autonomous_databases_configuration" {
           deploy_iam_policy_and_dyn_group_for_encryption_key = optional(bool, true)
           existing_oci_vault_id                              = string
           deploy_new_oci_encryption_key                      = optional(bool, true)
-          existing_oci_encryption_key_id                     = optional(string)
+          existing_oci_encryption_key_id                     = optional(string) # Required when deploy_new_oci_encryption_key is false and deploy_iam_policy_and_dyn_group_for_encryption_key is true.
         }))
         zpr_attributes = optional(list(object({ # it only applies if networking.enable_private_endpoint is true.
           namespace  = optional(string, "oracle-zpr")
@@ -57,22 +58,33 @@ variable "autonomous_databases_configuration" {
           mode       = optional(string, "enforce")
         })))
       }))
-      defined_tags  = optional(map(string), {})
-      freeform_tags = optional(map(string), {})
+      defined_tags  = optional(map(string))
+      freeform_tags = optional(map(string))
     }))
 
   })
 
   validation {
+    condition = alltrue([
+      for database in values(var.autonomous_databases_configuration.databases) :
+      (try(length(database.admin_password) > 0, false)) !=
+      (try(length(trimspace(database.admin_password_secret_id)) > 0, false))
+    ])
+    error_message = "Each Autonomous Database must define exactly one of admin_password or admin_password_secret_id."
+  }
+
+  validation {
     condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
       for k, v in var.autonomous_databases_configuration.databases :
-      length(v.admin_password) >= 12 &&             # between 12 and 30 characters long
-      length(v.admin_password) <= 30 &&             # between 12 and 30 characters long
-      can(regex("[A-Z]", v.admin_password)) &&      # contain at least 1 uppercase
-      can(regex("[a-z]", v.admin_password)) &&      # contain at least 1 lowercase
-      can(regex("[0-9]", v.admin_password)) &&      # contains at least 1 numeric character
-      !can(regex("\"", v.admin_password)) &&        # cannot contain the double quote symbol (")
-      !can(regex("admin", lower(v.admin_password))) # cannot contain the username "admin", regardless of casing.
+      try(length(v.admin_password) > 0, false) ? (
+        length(v.admin_password) >= 12 &&             # between 12 and 30 characters long
+        length(v.admin_password) <= 30 &&             # between 12 and 30 characters long
+        can(regex("[A-Z]", v.admin_password)) &&      # contain at least 1 uppercase
+        can(regex("[a-z]", v.admin_password)) &&      # contain at least 1 lowercase
+        can(regex("[0-9]", v.admin_password)) &&      # contains at least 1 numeric character
+        !can(regex("\"", v.admin_password)) &&        # cannot contain the double quote symbol (")
+        !can(regex("admin", lower(v.admin_password))) # cannot contain the username "admin", regardless of casing.
+      ) : true
     ])
     error_message = "Password must be between 12 and 30 characters, contain at least one uppercase letter, one lowercase letter, one numeric character, and cannot contain double quotes or 'admin' (case insensitive)."
   }
@@ -82,6 +94,30 @@ variable "autonomous_databases_configuration" {
       v.is_dedicated == false || (v.is_dedicated == true && v.autonomous_container_db_id != null)
     ])
     error_message = "Container Database ID must be provided to deploy on Dedicated Exadata Infrastructure. To provision a serverless Autonomous database, set is_dedicated=false."
+  }
+  validation {
+    condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
+      for k, v in var.autonomous_databases_configuration.databases :
+      try(v.is_dedicated, true) == true ||
+      try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == false ||
+      try(v.security.tde.deploy_new_oci_encryption_key, false) == true ||
+      try(v.security.tde.existing_oci_encryption_key_id, null) != null
+    ])
+    error_message = "existing_oci_encryption_key_id is required when ADB Shared/Serverless TDE deploys IAM policy and dynamic group with deploy_new_oci_encryption_key=false."
+  }
+  validation {
+    condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
+      for k, v in var.autonomous_databases_configuration.databases :
+      try(v.networking.enable_private_endpoint, false) == false || try(v.networking.subnet_id, null) != null
+    ])
+    error_message = "subnet_id is required when networking.enable_private_endpoint is true."
+  }
+  validation {
+    condition = var.autonomous_databases_configuration.databases == null ? true : alltrue([
+      for k, v in var.autonomous_databases_configuration.databases :
+      v.compartment_id != null || var.autonomous_databases_configuration.default_compartment_id != null
+    ])
+    error_message = "Each Autonomous Database must set compartment_id or autonomous_databases_configuration.default_compartment_id."
   }
 }
 
@@ -118,10 +154,26 @@ variable "network_dependency" {
   default = null
 }
 
+variable "secrets_dependency" {
+  description = "A map of objects containing externally managed OCI secrets this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the secret OCID) of string type."
+  type = map(object({
+    id = string
+  }))
+  default = null
+}
+
 variable "kms_dependency" {
   description = "A map of objects containing the externally managed encryption keys this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the key OCID) of string type."
   type = map(object({
     id = string # the key OCID.
+  }))
+  default = null
+}
+
+variable "vaults_dependency" {
+  description = "A map of objects containing the externally managed vaults this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the vault OCID) of string type."
+  type = map(object({
+    id = string # the vault OCID.
   }))
   default = null
 }

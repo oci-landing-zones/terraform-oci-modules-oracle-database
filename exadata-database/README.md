@@ -1,37 +1,56 @@
 # OCI Landing Zones Exadata Module
-![Landing_Zone_Logo](./landing_zone_300.png)
+![Landing_Zone_Logo](../landing_zone_300.png)
 
-## Table of Contents
+This module manages Exadata Database Service resources on OCI Dedicated Infrastructure. It can create Cloud Exadata Infrastructure and Cloud VM Clusters, or manage DB Homes, CDBs, and PDBs on externally managed VM Clusters.
 
-1. [Early Preview Disclaimer](#early-preview)
-1. [Overview](#overview)
-1. [Pre-requisites](#Pre-requisites)
-1. [Module Inputs](#module-inputs)
-1. [Cloud Exadata Infrastructures](#cloud-exadata-infrastructures)    
-1. [Cloud VM Clusters](#cloud-vm-clusters)
-1. [Cloud DB Homes](#cloud-db-homes)
-1. [Databases](#databases)
-1. [Pluggable Databases](#pluggable-databases)
-1. [OCI Landing Zones Modules Collection](#modules-collection)
-1. [Contributing](#contributing)
-1. [License](#license)
-1. [Known Issues](#known-issues)
+Check [module specification](./SPEC.md) for the complete typed contract, managed resources, and outputs. Check the [examples](./examples/) folder for module usage.
 
+- [Features](#features)
+- [Requirements](#requirements)
+- [How to Invoke the Module](#invoke)
+- [Module Functioning](#functioning)
+  - [Cloud Exadata Infrastructures](#cloud-exadata-infrastructures)
+  - [Cloud VM Clusters](#cloud-vm-clusters)
+  - [Cloud DB Homes](#cloud-db-homes)
+  - [Databases](#databases)
+  - [Pluggable Databases](#pluggable-databases)
+  - [Password Secrets](#password-secrets)
+  - [External Dependencies](#external-dependencies)
+- [Outputs](#outputs)
+- [Upgrade from 1.1.0](#updating-from-110)
+- [Related Documentation](#related)
+- [Known Issues](#known-issues)
 
-## <a name="overview">Overview</a>
-This repository contains Terraform OCI (Oracle Cloud Infrastructure) modules for resources that help customers deploy and manage Exadata Database Service on Dedicated Infrastructure on OCI.
+## <a name="features">Features</a>
 
-The following resources are available:
+The module supports:
 
 - Exadata Infrastructure
 - VM Clusters
 - Database Home
 - Container Database
 - Pluggable Database
+- Dependency handoff for Exadata infrastructure, VM Clusters, DB Homes, CDBs, and PDBs.
+- Direct management of DB Homes, CDBs, and PDBs on externally managed VM Clusters.
+- Database passwords supplied as sensitive literals or retrieved from OCI Vault secrets.
+
+## <a name="invoke">How to Invoke the Module</a>
+
+For a new deployment, start with the [Exadata quickstart](./examples/quickstart-for-deploying-exadata-database-service-on-dedicated-infrastructure/README.md). Additional examples cover [existing VM Clusters with DB Homes, CDBs, and PDBs](./examples/creating-additional-dbhomes-with-multiple-cdb-pdb/README.md) and multi-environment deployments.
+
+Use the released module source in a root module:
+
+```hcl
+module "exadata_database" {
+  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//exadata-database?ref=v1.2.0"
+
+  # Configure the inputs required by the selected deployment pattern.
+}
+```
 
 This module supports being passed an object containing references to OCIDs (Oracle Cloud IDs) that they may depend on. Every input attribute that expects an OCID (typically, attribute names ending in _id or _ids) can be given either a literal OCID or a reference (a key) to the OCID. While these OCIDs can be literally obtained from their sources and pasted when setting the modules input attributes, a superior approach is automatically consuming the outputs of producing modules. For instance, the Exadata Infrastructure module may depend on compartments and networks for deployment. It can be passed a compartments_dependency map and a network_dependency map with objects representing compartments and networks produced by other modules. The external dependency approach helps with the creation of loosely coupled Terraform configurations with clearly defined dependencies between them, avoiding copying and pasting OCIDs.
 
-## <a name="Pre-requisites">Pre-requisites</a>
+## <a name="requirements">Requirements</a>
 
 Before deploying the Exadata Cloud Infrastructure, VM Cluster, Database Home, Database, and PDB resources, ensure the following prerequisites are met:
 
@@ -74,38 +93,63 @@ Before deploying the Exadata Cloud Infrastructure, VM Cluster, Database Home, Da
   - [A **Service Gateway**](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/servicegateway.htm) — for private subnet access to Object Storage, or  
   - [An **Internet Gateway**](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/managingIGs.htm) — if using a public subnet.
 
-## <a name="module-inputs">Module Inputs</a>
+When any password uses a `*_secret_id` attribute, the identity applying the module also needs permission to read the OCI Vault secret bundle, for example:
+
+```
+Allow group <GROUP-NAME> to read secret-bundles in compartment <SECRETS-COMPARTMENT-NAME>
+```
+
+## <a name="functioning">Module Functioning</a>
 The module accepts the following input variables:
 
 ### General
 - module_name: The module name. Defaults to "exadata-cloud-service".
 - enable_output: Whether Terraform should enable module output. Defaults to true.
 - compartments_dependency: A map of objects containing the externally managed compartments this module may depend on.
+- subscription_dependency: A map of objects containing externally managed subscriptions this module may depend on.
+- exadata_database_dependency: An object containing externally managed Exadata Database resources this module may depend on.
+- kms_dependency: A map of objects containing externally managed encryption keys this module may depend on.
 - network_dependency: A map of objects containing the externally managed network resources this module may depend on.
-- default_compartment_id: Default Compartment ID for all resources.
+- recovery_service_dependency: A map of externally managed Autonomous Recovery Service protection policies this module may depend on. Pass either the ARS module `autonomous_recovery_service_protection_policies` output directly, or an object containing a `protection_policies` map.
+- secrets_dependency: A map of externally managed OCI Vault secrets this module may depend on. Each entry contains an `id` with the secret OCID.
+- default_compartment_id: Default compartment OCID, tenancy OCID for the root compartment, or `compartments_dependency` key for all resources.
 - default_defined_tags: Default defined tags for all resources.
 - default_freeform_tags: Default freeform tags for all resources.
 
+### External Dependencies
+The `exadata_database_dependency` input enables multi-stack deployments where Exadata infrastructure, VM clusters, DB homes, databases, or pluggable databases are created in a previous stack and referenced by logical key in a later stack. It accepts the same shape produced by the `exadata_database_resources` output:
+
+- cloud_exadata_infrastructures
+- cloud_vm_clusters
+- database_homes
+- databases
+- pluggable_databases
+
+Each map preserves the logical keys used by the producing stack and exposes at least the resource `id`. Compartment-scoped resources also expose `compartment_id` when available.
+For PDB clone operations, `pdb_creation_type_details.source_pluggable_database_id` may reference a logical key from `exadata_database_dependency.pluggable_databases`.
+
 ### <a name="cloud-exadata-infrastructures">Cloud Exadata Infrastructures</a>
 - cloud_exadata_infrastructures_configuration: Exadata infrastructure configuration. This is an object with the following attributes:
-  - default_maintenance_window: Default maintenance window configuration.
+  - default_maintenance_window: Default maintenance window configuration. It supports `custom_action_timeout_in_mins`, `days_of_week`, `hours_of_day`, `is_custom_action_timeout_enabled`, `is_monthly_patching_enabled`, `lead_time_in_weeks`, `months`, `patching_mode`, `preference`, and `weeks_of_month`.
   - cloud_exadata_infrastructures: A map of Exadata infrastructure configurations.
 
 Each Exadata infrastructure configuration object has the following attributes:
 
 - display_name: Display name of the Exadata infrastructure.
-- shape: Shape of the Exadata infrastructure. Accepted values are Exadata.X11M, Exadata.X9M, and Exadata.X8M.
-- compartment_id: Compartment ID of the Exadata infrastructure. Overrides default compartment ID.
-- availability_domain: Availability domain of the Exadata infrastructure.
+- shape: Shape of the Exadata infrastructure. Accepted values are Exadata.X11MV, Exadata.X11M, Exadata.X9M, and Exadata.X8M.
+- compartment_id: Compartment OCID, tenancy OCID for the root compartment, or `compartments_dependency` key for the Exadata infrastructure. Overrides the default compartment ID.
+- availability_domain: Availability domain of the Exadata infrastructure. When omitted, the module selects the lexicographically first name from the availability domains discovered for the resolved compartment.
 - compute_count: Compute count of the Exadata infrastructure.
 - customer_contacts: Customer contact information.
-- database_server_type: Database server type. Accepted values are X11M-BASE, X11M, X11M-L, and X11M-XL.
+- database_server_type: Database server type. Accepted values are X11MV, X11M-BASE, X11M, X11M-L, and X11M-XL.
 - defined_tags: Defined tags for the Exadata infrastructure.
 - freeform_tags: Freeform tags for the Exadata infrastructure.
 - maintenance_window: Maintenance window configuration.
 - storage_count: Storage count of the Exadata infrastructure.
-- storage_server_type: Storage server type. Accepted values are X11M-BASE and X11M-HC.
+- storage_server_type: Storage server type. Accepted values are X11MV-HC, X11M-BASE, and X11M-HC.
 - subscription_id: Subscription ID of the Exadata infrastructure.
+
+OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored. Other defined tags and all freeform tags remain managed by Terraform.
 
 For more details on this resource, please see OCI Terraform Documentation for [oci_database_cloud_exadata_infrastructure](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_exadata_infrastructure)
 
@@ -116,7 +160,7 @@ For more details on this resource, please see OCI Terraform Documentation for [o
 Each Cloud VM cluster configuration object has the following attributes:
 - backup_subnet_id: Backup subnet ID of the VM cluster.
 - exadata_infrastructure_id: Exadata infrastructure ID of the VM cluster.
-- compartment_id: Compartment ID of the VM cluster. Overrides default compartment ID.
+- compartment_id: Compartment OCID, tenancy OCID for the root compartment, or `compartments_dependency` key for the VM cluster. Overrides the default compartment ID.
 - cpu_core_count: CPU core count of the VM cluster.
 - display_name: Display name of the VM cluster.
 - gi_version: GI version of the VM cluster.
@@ -150,19 +194,20 @@ backup_network_nsg_ids: Backup network NSG IDs of the VM cluster.
 - time_zone: Time zone of the VM cluster.
 - vm_cluster_type: VM cluster type.
 
-These attributes are not updatable after initial resource creation:
+For compatibility, the module does not manage later changes to:
 - gi_version
 - system_version
-- defined_tags
+- any `defined_tags` on a VM Cluster
+
+Freeform tags remain managed by Terraform. This VM Cluster tag behavior is retained from 1.1.0.
 
 For more details on this resource, please see OCI Terraform Documentation for [oci_database_cloud_vm_cluster](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_vm_cluster)
 
 
 ### <a name="cloud-db-homes">Cloud DB Homes</a>
-- cloud_db_homes: OCI Database Cloud Database Home Configuration. This is a map of DB Home configurations.
+- cloud_db_homes_configuration: OCI Database Cloud Database Home Configuration. This is a map of DB Home configurations.
 
 Each DB Home object has the following attributes:
-- database: Details for creating a database.
 - database_software_image_id: The database software image OCID
 - db_system_id: The OCID of the DB system.
 - db_version: A valid Oracle Database version. For a list of supported versions, use the ListDbVersions operation.
@@ -176,7 +221,15 @@ Each DB Home object has the following attributes:
 - source: The source of database: NONE for creating a new database. DB_BACKUP for creating a new database by restoring from a database backup. VM_CLUSTER_NEW for creating a database for VM Cluster.
 - vm_cluster_id: The OCID or key of the VM cluster.
 
-These attributes are not updatable after initial resource creation
+New Container Databases are created with `databases_configuration`, referencing the DB Home by key or OCID. This standalone contract is the supported path for new same-stack and multi-stack deployments.
+
+### Updating from 1.1.0
+
+Existing Exadata Database callers can upgrade to 1.2.0 while retaining their existing module configuration. For a version-only upgrade, run and review the first plan before applying it, and investigate any unexpected creation, replacement, or destruction of existing Exadata resources.
+
+Exadata Database 1.1.0 accepted `custom_action_timeout_in_mins`, `is_custom_action_timeout_enabled`, `is_monthly_patching_enabled`, and `patching_mode` inside `default_maintenance_window`, but discarded them during input type conversion. Version 1.2.0 passes those declared values to OCI. If an unchanged 1.1.0 configuration already contains them, the upgrade plan can include an in-place maintenance-window update. Configurations that omit them do not receive new defaults.
+
+The module does not manage later changes to DB Home software version or image. OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; other defined tags and freeform tags remain managed. In the legacy inline CDB configuration, administration, backup TDE, and TDE wallet passwords are sensitive creation-time values.
 - db_version
 - database_software_image_id
 
@@ -188,17 +241,31 @@ For more details on this resource, please see OCI Terraform Documentation for [o
 
 Each Database Configuration object has the following attributes:
 - database: Details for creating a database.
+- Optional attribute `database.tde_wallet_password` passes the TDE wallet password for database creation or restore flows when OCI requires it. If omitted, the module passes null and does not default it from `database.admin_password`.
 - db_home_id: The OCID or key of the Database Home.
 - source: The source of the database: Use NONE for creating a new database. Use DB_BACKUP for creating a new database by restoring from a backup. Use DATAGUARD for creating a new STANDBY database for a Data Guard setup. The default is NONE.
 - key_store_id: The OCID of the key store of Oracle Vault.
 - db_version: A valid Oracle Database version. For a list of supported versions, use the ListDbVersions operation.
 - kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
 - kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation.
+- database.db_backup_config.backup_destination_details.dbrs_policy_id: The Autonomous Recovery Service protection policy OCID, or a key in `recovery_service_dependency`.
 
-These attributes are not updatable after initial resource creation:
-- db_home_id
-- db_version
-- database.admin_password
+`database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later.
+
+The module does not manage later changes to `db_home_id`, `db_version`, or those creation-time credentials. Keeping `db_home_id` unchanged allows an out-of-place DB Home patch to remain in place. The OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; other defined tags and freeform tags remain managed.
+
+OCI tag defaults can add tenancy-specific defined tags when a CDB is created. To manage one of those tags with Terraform, declare its key and value in `default_defined_tags` or `database.defined_tags`. Direct module callers that intentionally do not want Terraform to manage a particular tag can add its fully qualified key to the OCI provider's `ignore_defined_tags` setting:
+
+```hcl
+provider "oci" {
+  # Authentication and region settings omitted.
+  ignore_defined_tags = [
+    "Default_Tags.AutoStop",
+  ]
+}
+```
+
+Do not ignore the complete `database.defined_tags` map: doing so would also hide changes to tags the customer expects Terraform to manage. OCI Landing Zones Orchestrator callers should keep tenancy tag defaults in the workload configuration; changing the Orchestrator provider-wide ignore list affects every resource that uses that provider.
 
 For more details on this resource, please see OCI Terraform Documentation for [oci_database_database](https://docs.oracle.com/en-us/iaas/tools/terraform-provider-oci/7.20.0/docs/r/database_database.html)
 
@@ -218,8 +285,46 @@ Each PDB Configuration object has the following attributes:
 - should_pdb_admin_account_be_locked: The locked mode of the pluggable database admin account. If false, the user needs to provide the PDB Admin Password to connect to it. If true, the pluggable database will be locked and user cannot login to it.
 - tde_wallet_password: The existing TDE wallet password of the CDB.
 
+`container_database_admin_password`, `pdb_admin_password`, and `tde_wallet_password` are sensitive creation-time values. OCI provenance tags are ignored; other defined tags and freeform tags remain managed. Changes to `container_database_id` remain visible in the Terraform plan.
 
-## <a name="modules-collection">OCI Landing Zones Modules Collection</a>
+### <a name="password-secrets">Password Secrets</a>
+
+Every password consumed by the DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. The Common Database child module reads the `CURRENT` secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting password as sensitive before passing it to the OCI provider; the Exadata wrapper only passes the configuration and dependency map through unchanged.
+
+The supported pairs cover legacy inline CDB administration, backup TDE, encryption HSM, and TDE wallet passwords; standalone CDB administration, backup TDE, Data Guard administration, backup-destination VPC, encryption HSM, source TDE wallet, source-encryption HSM, and TDE wallet passwords; and PDB container administration, PDB administration, database-link, source-container administration, and TDE wallet passwords. In each case, append `_secret_id` to the literal password attribute name.
+
+The deprecated legacy inline `source_encryption_key_location_details` block remains accepted only for 1.1.0 input compatibility and is not consumed by the DB Home provider path; its fields therefore remain unmanaged.
+
+For every legacy inline CDB and standalone CDB, define exactly one of `admin_password` or `admin_password_secret_id`. When a standalone CDB uses `source = "DATAGUARD"`, also define exactly one of `database_admin_password` or `database_admin_password_secret_id`, and exactly one of `source_tde_wallet_password` or `source_tde_wallet_password_secret_id`. For all other password pairs, define at most one. An empty literal is treated as absent. Password-policy validation applies equally to literal and Vault-backed administration and TDE wallet passwords.
+
+Prefer the `*_secret_id` attributes to avoid committing literal passwords to Git and to centralize rotation and audit activity in OCI Vault. Regardless of the source, Terraform retrieves the password and stores it in the Terraform state file. Treat the state as sensitive data and protect it with an encrypted backend and appropriately restricted access.
+
+```hcl
+secrets_dependency = {
+  DATABASE-ADMIN = {
+    id = "ocid1.vaultsecret.oc1..example"
+  }
+}
+
+databases_configuration = {
+  application = {
+    db_home_id = "database-home"
+    source     = "NONE"
+    database = {
+      admin_password_secret_id = "DATABASE-ADMIN"
+      db_name                  = "APPCDB"
+    }
+  }
+}
+```
+
+## Outputs
+The module keeps the raw resource outputs for direct module compatibility and also publishes `cloud_exadata_database_resources` for downstream dependency consumption. Raw DB Home, database, and pluggable database outputs are sensitive because they can include password-backed attributes. The `cloud_exadata_database_resources` output contains minimal maps for Exadata infrastructures, VM clusters, DB homes, databases, and pluggable databases.
+
+The canonical Cloud Exadata Database dependency output is `cloud_exadata_database_resources`. The `cloud_exadata_database_dependency` output exposes the same minimal shape for Orchestrator dependency consumption. The shorter `exadata_database_resources` and `exadata_database_dependency` outputs are aliases for integrations that still read the shorter Exadata names instead of falling back to raw resource outputs.
+
+
+## <a name="related">Related Documentation</a>
 This repository is part of a broader collection of repositories containing modules that help customers deploy and manage various OCI resources:
 
 - [Exadata](https://github.com/oci-landing-zones/terraform-oci-modules-exadata) - current repository
@@ -235,14 +340,14 @@ The modules in this collection are designed for flexibility, are straightforward
 Using these modules does not require a user extensive knowledge of Terraform or OCI resource types usage. Users declare a JSON object describing the OCI resources according to each module’s specification and minimal Terraform code to invoke the modules. The modules generate outputs that can be consumed by other modules as inputs, allowing for the creation of independently managed operational stacks to automate your entire OCI infrastructure.
 
 ## <a name="contributing">Contributing</a>
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## <a name="license">License</a>
 Copyright (c) 2025, Oracle and/or its affiliates.
 
 Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
-See [LICENSE](./LICENSE) for more details.
+See [LICENSE](../LICENSE.txt) for more details.
 
 ## <a name="known-issues">Known Issues</a>
 1.  The PDB creation might fail if the DB creation is in progress. solution: run "terraform apply" again and it will resume from where it left off.

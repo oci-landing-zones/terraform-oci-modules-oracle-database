@@ -15,13 +15,13 @@ autonomous_databases_configuration = {
   databases = {
     TEST-ATP = {
       db_name                         = "VisionTestATP02"
-      admin_password                  = "<REPLACE-WITH-STRONG-PASSWORD>"
-      db_workload                     = "DW"
+      admin_password_secret_id        = "ADB-ADMIN-PASSWORD"
+      db_workload                     = "APEX"
       is_dedicated                    = false
       networking = {
         subnet_id               = "CLIENT-SUBNET"
         enable_private_endpoint = true
-        private_endpoint_ip     = "172.16.0.0/20"
+        private_endpoint_ip     = "172.16.0.25"
       }
       security = {
         tde = {
@@ -34,12 +34,21 @@ autonomous_databases_configuration = {
   }
 }
 
-kms_dependency = {
-  CUSTOM-VAULT = {
-    id = "<REPLACE-WITH-OCID>"
+secrets_dependency = {
+  ADB-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-ADMIN-PASSWORD-SECRET-OCID>"
   }
+}
+
+vaults_dependency = {
+  CUSTOM-VAULT = {
+    id = "<REPLACE-WITH-VAULT-OCID>"
+  }
+}
+
+kms_dependency = {
   CUSTOM-KEY = {
-    id = "<REPLACE-WITH-OCID>"
+    id = "<REPLACE-WITH-KEY-OCID>"
   }
 }
 

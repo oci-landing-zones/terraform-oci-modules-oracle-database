@@ -22,7 +22,7 @@ It deploys the following resources:
         - Pluggable Database-8
   - VM Cluster-2 in VCN-2
 
-See [input.auto.tfvars.template](./input.auto.tfvars) for resource configuration. 
+See [input.auto.tfvars.template](./input.auto.tfvars.template) for resource configuration.
 See [Module's README.md](../../README.md) for overall attributes usage.
 
 ## Using this example

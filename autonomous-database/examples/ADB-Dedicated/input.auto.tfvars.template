@@ -14,8 +14,15 @@ autonomous_databases_configuration = {
   databases = {
     TEST-ATP = {
       db_name                    = "TESTATP11191043"
-      admin_password             = "<REPLACE-WITH-STRONG-PASSWORD>"
+      admin_password_secret_id   = "ADB-ADMIN-PASSWORD"
+      is_dedicated               = true
       autonomous_container_db_id = "<REPLACE-WITH-OCID>"
     }
+  }
+}
+
+secrets_dependency = {
+  ADB-ADMIN-PASSWORD = {
+    id = "<REPLACE-WITH-ADMIN-PASSWORD-SECRET-OCID>"
   }
 }
