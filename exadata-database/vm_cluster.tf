@@ -73,7 +73,7 @@ resource "oci_database_cloud_vm_cluster" "these" {
   # Optional
   backup_network_nsg_ids      = length(each.value.backup_network_nsg_ids) > 0 ? each.value.backup_network_nsg_ids : null
   defined_tags                = each.value.defined_tags != null ? each.value.defined_tags : var.default_defined_tags
-  freeform_tags               = each.value.freeform_tags != null ? each.value.freeform_tags : var.default_freeform_tags
+  freeform_tags               = merge(local.cislz_module_tag, each.value.freeform_tags != null ? each.value.freeform_tags : var.default_freeform_tags)
   is_local_backup_enabled     = each.value.is_local_backup_enabled
   is_sparse_diskgroup_enabled = each.value.is_sparse_diskgroup_enabled
   nsg_ids                     = length(each.value.nsg_ids) > 0 ? each.value.nsg_ids : null

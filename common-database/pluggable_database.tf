@@ -147,7 +147,7 @@ resource "oci_database_pluggable_database" "these" {
     : try(base64decode(data.oci_secrets_secretbundle.pdb_container_admin_password[each.key].secret_bundle_content[0].content), null)
   )
   defined_tags       = local.pluggable_databases[each.key].defined_tags
-  freeform_tags      = local.pluggable_databases[each.key].freeform_tags
+  freeform_tags      = merge(local.cislz_module_tag, local.pluggable_databases[each.key].freeform_tags)
   kms_key_version_id = local.pluggable_databases[each.key].kms_key_version_id
   pdb_admin_password = sensitive(
     try(length(each.value.pdb_admin_password) > 0, false)

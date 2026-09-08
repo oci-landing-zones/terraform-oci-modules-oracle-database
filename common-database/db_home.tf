@@ -212,7 +212,7 @@ resource "oci_database_db_home" "these" {
   kms_key_id                  = each.value.kms_key_id
   kms_key_version_id          = lookup(each.value, "kms_key_version_id", null)
   defined_tags                = each.value.defined_tags
-  freeform_tags               = each.value.freeform_tags
+  freeform_tags               = merge(local.cislz_module_tag, each.value.freeform_tags)
 
   # Deprecated v1.1.0 compatibility path. Existing inline CDBs remain owned by
   # their DB Home throughout the 1.2.x release line; new CDBs use
@@ -267,7 +267,7 @@ resource "oci_database_db_home" "these" {
       kms_key_version_id  = lookup(database.value, "kms_key_version_id", null)
       vault_id            = lookup(database.value, "vault_id", null)
       defined_tags        = lookup(database.value, "defined_tags", null)
-      freeform_tags       = lookup(database.value, "freeform_tags", null)
+      freeform_tags       = merge(local.cislz_module_tag, coalesce(lookup(database.value, "freeform_tags", null), {}))
 
       dynamic "encryption_key_location_details" {
         for_each = lookup(database.value, "encryption_key_location_details", null) != null ? database.value.encryption_key_location_details : {}

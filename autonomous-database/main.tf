@@ -138,7 +138,7 @@ resource "oci_database_autonomous_database" "these" {
   nsg_ids                             = local.db_configs[each.key].nsg_ids
   whitelisted_ips                     = local.db_configs[each.key].whitelisted_ips
   defined_tags                        = local.db_configs[each.key].defined_tags
-  freeform_tags                       = local.db_configs[each.key].freeform_tags
+  freeform_tags                       = merge(local.cislz_module_tag, local.db_configs[each.key].freeform_tags)
   private_endpoint_label              = local.db_configs[each.key].private_endpoint_label
   private_endpoint_ip                 = local.db_configs[each.key].private_endpoint_ip
   security_attributes                 = local.db_configs[each.key].security_attributes

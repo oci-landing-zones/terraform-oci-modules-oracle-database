@@ -50,7 +50,7 @@ resource "oci_database_cloud_exadata_infrastructure" "these" {
 
   database_server_type = each.value.database_server_type
   defined_tags         = each.value.defined_tags != null ? each.value.defined_tags : var.default_defined_tags
-  freeform_tags        = merge(each.value.freeform_tags != null ? each.value.freeform_tags : var.default_freeform_tags)
+  freeform_tags        = merge(local.cislz_module_tag, each.value.freeform_tags != null ? each.value.freeform_tags : var.default_freeform_tags)
 
   dynamic "maintenance_window" {
     for_each = each.value.maintenance_window != null ? [each.value.maintenance_window] : var.cloud_exadata_infrastructures_configuration.default_maintenance_window != null ? [var.cloud_exadata_infrastructures_configuration.default_maintenance_window] : []
