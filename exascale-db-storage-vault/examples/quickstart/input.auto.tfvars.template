@@ -1,0 +1,15 @@
+compartments_dependency = {
+  database = { id = "ocid1.compartment.oc1..replace-me" }
+}
+
+exascale_db_storage_vaults_configuration = {
+  default_compartment_id = "database"
+
+  exascale_db_storage_vaults = {
+    primary = {
+      availability_domain                = "replace-me:AD-1"
+      display_name                       = "primary-exascale-vault"
+      high_capacity_database_storage_gbs = 300
+    }
+  }
+}

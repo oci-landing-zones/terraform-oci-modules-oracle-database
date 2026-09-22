@@ -1,0 +1,18 @@
+exadb_xs_dependency = {
+  exascale_db_storage_vaults = {
+    existing-vault = {
+      id             = "ocid1.exascaledbstoragevault.oc1..replace-me"
+      compartment_id = "ocid1.compartment.oc1..replace-me"
+    }
+  }
+  exadb_vm_clusters = {
+    existing-cluster = {
+      id             = "ocid1.exadbvmcluster.oc1..replace-me"
+      compartment_id = "ocid1.compartment.oc1..replace-me"
+    }
+  }
+}
+
+# Leave this null until the common-database external follow-up accepts the
+# ocid1.exadbvmcluster VM cluster prefix.
+cloud_db_homes_configuration = null

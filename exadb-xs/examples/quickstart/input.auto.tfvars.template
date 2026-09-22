@@ -1,0 +1,44 @@
+compartments_dependency = {
+  database = { id = "ocid1.compartment.oc1..replace-me" }
+}
+
+network_dependency = {
+  subnets = {
+    client = { id = "ocid1.subnet.oc1..replace-me" }
+    backup = { id = "ocid1.subnet.oc1..replace-me" }
+  }
+  network_security_groups = {
+    database = { id = "ocid1.networksecuritygroup.oc1..replace-me" }
+  }
+}
+
+exadb_xs_configuration = {
+  default_compartment_id = "database"
+  exascale_db_storage_vaults = {
+    primary = {
+      availability_domain                = "replace-me:AD-1"
+      display_name                       = "primary-xs-vault"
+      high_capacity_database_storage_gbs = 1000
+    }
+  }
+  exadb_vm_clusters = {
+    primary = {
+      availability_domain          = "replace-me:AD-1"
+      backup_subnet_id             = "backup"
+      display_name                 = "primary-xs-cluster"
+      exascale_db_storage_vault_id = "primary"
+      grid_image_id                = "ocid1.image.oc1..replace-me"
+      hostname                     = "exaxs01"
+      shape                        = "EXADB_XS"
+      ssh_public_keys              = ["ssh-rsa replace-me"]
+      subnet_id                    = "client"
+      node_names                   = ["node-1", "node-2"]
+      node_config = {
+        enabled_ecpu_count_per_node              = 8
+        total_ecpu_count_per_node                = 8
+        vm_file_system_storage_size_gbs_per_node = 220
+      }
+      nsg_ids = ["database"]
+    }
+  }
+}
