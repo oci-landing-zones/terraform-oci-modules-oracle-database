@@ -2,7 +2,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
 variable "vm_cluster_dependency" {
-  description = "Existing Cloud VM Clusters or ExaDB-XS VM Clusters keyed by the logical names used in cloud_db_homes_configuration."
+  description = "Existing Cloud VM Clusters, Exadata Cloud@Customer VM Clusters, or ExaDB-XS VM Clusters keyed by the logical names used in cloud_db_homes_configuration."
   type        = any
 }
 

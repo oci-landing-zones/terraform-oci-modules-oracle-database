@@ -31,7 +31,7 @@ variable "database_dependency" {
 }
 
 variable "vm_cluster_dependency" {
-  description = "Externally managed Cloud VM Clusters or ExaDB-XS VM Clusters that DB homes may reference by logical key."
+  description = "Externally managed Cloud VM Clusters, Exadata Cloud@Customer VM Clusters, or ExaDB-XS VM Clusters that DB homes may reference by logical key."
   type = map(object({
     id             = string
     compartment_id = optional(string)

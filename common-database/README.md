@@ -2,9 +2,9 @@
 
 ![Landing Zone logo](../landing_zone_300.png)
 
-This module manages OCI Database Homes, Container Databases (CDBs), and Pluggable Databases (PDBs). Use it when the target Cloud VM Cluster, ExaDB-XS VM Cluster, or DB System already exists and is managed by another stack or module. It does not create Cloud Exadata Infrastructure, VM Clusters, or DB Systems.
+This module manages OCI Database Homes, Container Databases (CDBs), and Pluggable Databases (PDBs). Use it when the target Cloud VM Cluster, Exadata Cloud@Customer VM Cluster, ExaDB-XS VM Cluster, or DB System already exists and is managed by another stack or module. It does not create Cloud Exadata Infrastructure, VM Clusters, or DB Systems.
 
-Resource references accept literal OCIDs or logical keys resolved through dependency inputs. The module can target a Cloud VM Cluster, an ExaDB-XS VM Cluster, or a DB System; each DB Home must select exactly one target.
+Resource references accept literal OCIDs or logical keys resolved through dependency inputs. The module can target a Cloud VM Cluster, an Exadata Cloud@Customer VM Cluster, an ExaDB-XS VM Cluster, or a DB System; each DB Home must select exactly one target.
 
 Check [module specification](./SPEC.md) for the complete typed contract, managed resources, and outputs. Check the [examples](./examples/) folder for module usage.
 
@@ -25,7 +25,7 @@ Check [module specification](./SPEC.md) for the complete typed contract, managed
 
 The module supports:
 
-- Database Homes on existing Cloud VM Clusters, ExaDB-XS VM Clusters, or DB Systems.
+- Database Homes on existing Cloud VM Clusters, Exadata Cloud@Customer VM Clusters, ExaDB-XS VM Clusters, or DB Systems.
 - Standalone Container Databases and additional Pluggable Databases.
 - Logical-key or literal-OCID references to locally managed and external DB Homes, CDBs, PDBs, VM Clusters, DB Systems, KMS keys, and Recovery Service protection policies.
 - Database passwords supplied as sensitive literals or retrieved from OCI Vault secrets.
@@ -86,7 +86,7 @@ The module manages three optional configuration maps. Map keys identify resource
 
 ### <a name="database-homes">Database Homes</a>
 
-Each Database Home selects one target: `vm_cluster_id` for a Cloud VM Cluster or ExaDB-XS VM Cluster, or `db_system_id` for a DB System. The target can be a literal OCID or a key from `vm_cluster_dependency` or `db_system_dependency`. A Database Home cannot target both.
+Each Database Home selects one target: `vm_cluster_id` for a Cloud VM Cluster, Exadata Cloud@Customer VM Cluster, or ExaDB-XS VM Cluster, or `db_system_id` for a DB System. The target can be a literal OCID or a key from `vm_cluster_dependency` or `db_system_dependency`. A Database Home cannot target both.
 
 The legacy inline `cloud_db_homes_configuration[*].database` block is retained only for Exadata Database 1.1.0 upgrade compatibility. New CDB configurations must use `databases_configuration`.
 
@@ -142,7 +142,7 @@ databases_configuration = {
 External dependencies let configuration values use stable map keys instead of literal OCIDs.
 
 - `database_dependency`: External DB Homes, CDBs, and PDBs.
-- `vm_cluster_dependency`: External Cloud VM Clusters or ExaDB-XS VM Clusters.
+- `vm_cluster_dependency`: External Cloud VM Clusters, Exadata Cloud@Customer VM Clusters, or ExaDB-XS VM Clusters.
 - `db_system_dependency`: External DB Systems.
 - `kms_dependency`: External encryption keys.
 - `recovery_service_dependency`: Recovery Service protection policies, supplied as a direct map or under `protection_policies`.
