@@ -84,7 +84,7 @@ For remote use, refer to this module directory in the repository:
 
 ```hcl
 module "autonomous_database" {
-  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//autonomous-database?ref=v1.2.0"
+  source = "github.com/oci-landing-zones/terraform-oci-modules-oracle-database//autonomous-database?ref=v1.2.0"
   autonomous_databases_configuration = var.autonomous_databases_configuration
   secrets_dependency                 = var.secrets_dependency
   tenancy_ocid                       = var.tenancy_ocid

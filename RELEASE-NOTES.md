@@ -1,3 +1,16 @@
+# Unreleased
+
+## Additions
+
+1. Added the `exadb-xs` module for Exadata Database Service on Exascale Infrastructure.
+2. Added the reusable `exascale-db-storage-vault` module, used by ExaDB-XS and available to the Exadata-D wrapper for Dedicated Infrastructure vault creation.
+3. Added Exadata-D outputs for Exascale DB Storage Vaults.
+
+## Compatibility
+
+1. ExaDB-XS, Exascale DB Storage Vaults, and the updated Exadata-D module require Terraform `>= 1.5.0` and OCI provider `>= 8.0.0`.
+2. The existing Exadata-D examples now declare the same Terraform and OCI provider requirements as the module.
+
 # September 4, 2026 Release Notes - 1.2.0
 
 ## Updates
