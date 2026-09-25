@@ -10,10 +10,10 @@ Exadata Infrastructure, by a Dedicated Infrastructure workflow.
 
 ## Use as a child module
 
-`exadb-xs` invokes this module internally for locally configured vaults. The
-same pattern can be adopted by `exadata-database` in a coordinated follow-up.
-The parent supplies configuration and dependencies; this module owns the OCI
-resource implementation, validation, tags, and dependency-shaped outputs.
+`exadb-xs` and `exadata-database` invoke this module internally for locally
+configured vaults. The parent supplies configuration and dependencies; this
+module owns the OCI resource implementation, validation, tags, and
+dependency-shaped outputs.
 
 ```hcl
 module "storage_vault" {
@@ -58,8 +58,9 @@ exascale_db_storage_vaults_configuration = {
 
 This module does not make a VM Cluster use the vault. A consumer must pass the
 published vault ID to its own OCI VM Cluster resource. For ExaDB-XS that is
-mandatory per cluster; for the current Exadata-D module it remains an optional,
-not-yet-wired provider capability.
+mandatory per cluster. The current Exadata-D parent creates and publishes a
+Dedicated Infrastructure vault, but does not yet change the existing Cloud VM
+Cluster contract to consume it.
 
 ## Outputs and ownership
 
@@ -81,5 +82,5 @@ same vault again.
 
 See [SPEC.md](./SPEC.md) for the contract and
 [examples/quickstart](./examples/quickstart) for a minimal standalone
-configuration. Coordinated Exadata-D and Orchestrator integration is not part
-of this module release.
+configuration. Orchestrator wiring for the Exadata-D vault output remains a
+separate coordinated change.

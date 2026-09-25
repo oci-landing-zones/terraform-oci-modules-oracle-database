@@ -80,7 +80,7 @@ variable "subscription_dependency" {
 }
 
 variable "exadata_infrastructure_dependency" {
-  description = "Externally managed Cloud Exadata Infrastructures keyed by logical name. Required only when a vault sets exadata_infrastructure_id."
+  description = "Externally managed Cloud Exadata Infrastructures keyed by logical name. Required only when exadata_infrastructure_id uses a logical key; a literal infrastructure OCID does not require this map."
   type = map(object({
     id             = string
     compartment_id = optional(string)

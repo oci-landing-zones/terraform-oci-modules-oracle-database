@@ -44,9 +44,8 @@ or an apply in a suitable test tenancy.
 `cloud_db_homes_configuration`, `databases_configuration`, and
 `pluggable_databases_configuration` are forwarded unchanged to
 `common-database`, which remains the single typed and validated contract for
-Oracle Homes, CDBs, and PDBs. For a local-key reference to a Smart Storage
-cluster, this module additionally rejects an explicit DB Home `db_version`
-outside the 26ai family. Image-OCID-only compatibility needs OCI evidence.
+Oracle Homes, CDBs, and PDBs. Database version compatibility with ExaDB-XS
+storage mode and Grid Image requires OCI evidence from a suitable test tenancy.
 
 For operations compatibility, the VM Cluster ignores `grid_image_id`,
 operating-system `system_version`, and all `defined_tags`; the Storage Vault

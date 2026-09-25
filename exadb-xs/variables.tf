@@ -28,7 +28,6 @@ variable "exadb_xs_configuration" {
       additional_flash_cache_in_percent  = optional(number)
       autoscale_limit_in_gbs             = optional(number)
       description                        = optional(string)
-      exadata_infrastructure_id          = optional(string)
       is_autoscale_enabled               = optional(bool)
       subscription_id                    = optional(string)
       time_zone                          = optional(string)
@@ -88,16 +87,12 @@ variable "exadb_xs_configuration" {
   validation {
     condition = var.exadb_xs_configuration == null ? true : alltrue([
       for vault in values(var.exadb_xs_configuration.exascale_db_storage_vaults) :
-      vault.exadata_infrastructure_id != null ? (
-        vault.high_capacity_database_storage_gbs >= 2000
-        ) : (
-        vault.high_capacity_database_storage_gbs >= 300 &&
-        vault.high_capacity_database_storage_gbs <= 100000
-      ) &&
+      vault.high_capacity_database_storage_gbs >= 300 &&
+      vault.high_capacity_database_storage_gbs <= 100000 &&
       trimspace(vault.display_name) != "" &&
       (vault.autoscale_limit_in_gbs == null || vault.autoscale_limit_in_gbs >= vault.high_capacity_database_storage_gbs)
     ])
-    error_message = "Storage vault display_name must be nonempty. ExaDB-XS storage vaults without exadata_infrastructure_id must set high_capacity_database_storage_gbs between 300 and 100000. Vaults with exadata_infrastructure_id must set at least 2000 GB; their maximum remains Dedicated Infrastructure service-dependent. autoscale_limit_in_gbs, when set, must not be lower than high_capacity_database_storage_gbs."
+    error_message = "Storage vault display_name must be nonempty. ExaDB-XS storage vaults must set high_capacity_database_storage_gbs between 300 and 100000. autoscale_limit_in_gbs, when set, must not be lower than high_capacity_database_storage_gbs."
   }
 
   validation {
@@ -209,15 +204,6 @@ variable "subscription_dependency" {
   description = "Externally managed subscriptions keyed by logical name."
   type        = map(object({ id = string }))
   default     = null
-}
-
-variable "exadata_infrastructure_dependency" {
-  description = "Externally managed Cloud Exadata Infrastructures keyed by logical name, for the optional storage-vault exadata_infrastructure_id."
-  type = map(object({
-    id             = string
-    compartment_id = optional(string)
-  }))
-  default = null
 }
 
 variable "exadb_xs_dependency" {

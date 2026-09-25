@@ -38,7 +38,6 @@ References accept either literal OCIDs or logical keys:
 | NSG | `ocid1.networksecuritygroup.` | `network_dependency.network_security_groups` |
 | Subscription | `ocid1.` | `subscription_dependency` |
 | Storage vault | `ocid1.exascaledbstoragevault.` | local vault key or `exadb_xs_dependency.exascale_db_storage_vaults` |
-| Cloud Exadata Infrastructure | `ocid1.cloudexadatainfrastructure.` | `exadata_infrastructure_dependency` |
 
 `kms_dependency`, `secrets_dependency`, and `recovery_service_dependency` are
 passed unchanged to `common-database`. They are not inputs to an Exascale DB
@@ -112,17 +111,13 @@ same large contract. They therefore accept the same configuration shape as
 `exadata-database` and fail during the same Terraform plan when the child
 module validates them.
 
-For a DB Home that references a local Smart Storage cluster by key, an explicit
-`db_version` must begin with `26`; a declared 19c version fails before apply.
-An image-only configuration cannot be checked locally because an image OCID
-does not expose its database generation. That case remains an authenticated OCI
-test-tenancy check.
+Database version compatibility with an ExaDB-XS storage mode and Grid Image is
+enforced by OCI. It remains a test-tenancy check until the service behavior is
+verified with authenticated evidence.
 
-At this repository revision, common-database accepts only
-`ocid1.cloudvmcluster.` in its DB-home precondition. Consequently, configuring a
-DB home against an ExaDB-XS VM Cluster will fail until common-database accepts
-the `ocid1.exadbvmcluster.` resource family. Empty database-home configuration
-remains supported.
+`common-database` accepts both `ocid1.cloudvmcluster.` and
+`ocid1.exadbvmcluster.` targets. Consequently, a DB Home can reference an
+ExaDB-XS VM Cluster by local key, external dependency key, or literal OCID.
 
 ## Outputs
 

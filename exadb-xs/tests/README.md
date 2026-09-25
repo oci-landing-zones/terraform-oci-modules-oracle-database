@@ -14,12 +14,9 @@ percentage, node count, ECPU ranges/multiples including the zero-enabled
 lifecycle value, Smart/Block filesystem minimums, storage mode, hostname,
 license constant, SCAN port, and the ZPR attribute limit.
 
-It also records two database/storage guardrails at the layer where they can
-currently be evaluated:
+The suite also records one database/storage guardrail that can currently be
+evaluated locally:
 
-- `rejects_19c_db_home_on_smart_storage` verifies the temporary ExaDB-XS-local
-  fast-fail rule for an explicit 19c DB Home that references a locally-created
-  Smart Storage cluster.
 - A VM Cluster accepts exactly one `exascale_db_storage_vault_id` **string**;
   the typed variable contract rejects a list of two vault OCIDs before any
   provider operation. Terraform's native test runner rejects malformed test
@@ -39,6 +36,6 @@ and the reverse combination, while accepting matching combinations. A real OCI
 test tenancy is still required because the compatibility is ultimately enforced
 by OCI resource state.
 
-OCI-backed constraints such as existing-vault compatibility and Grid
-Infrastructure release are tracked, but are intentionally not mocked; see
-`../CONSOLE-CONSTRAINTS-TRACKER.md`.
+OCI-backed constraints such as existing-vault compatibility and database
+version compatibility with storage mode and Grid Image are intentionally not
+mocked and must be verified in a suitable test tenancy.

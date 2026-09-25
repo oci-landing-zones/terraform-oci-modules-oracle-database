@@ -13,6 +13,6 @@ exadb_xs_dependency = {
   }
 }
 
-# Leave this null until the common-database external follow-up accepts the
-# ocid1.exadbvmcluster VM cluster prefix.
+# Optional: a DB Home can reference the existing ExaDB-XS VM Cluster by its
+# logical key. Add CDB and PDB configurations as needed.
 cloud_db_homes_configuration = null

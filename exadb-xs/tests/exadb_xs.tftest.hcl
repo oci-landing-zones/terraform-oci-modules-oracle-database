@@ -3,6 +3,13 @@ mock_provider "oci" {}
 run "plans_local_vault_and_cluster" {
   command = apply
 
+  override_resource {
+    target = oci_database_exadb_vm_cluster.these["primary"]
+    values = {
+      id = "ocid1.exadbvmcluster.oc1..primary"
+    }
+  }
+
   variables {
     compartments_dependency = {
       database = { id = "ocid1.compartment.oc1..test" }
@@ -47,6 +54,14 @@ run "plans_local_vault_and_cluster" {
         }
       }
     }
+
+    cloud_db_homes_configuration = {
+      primary = {
+        display_name  = "primary-db-home"
+        db_version    = "26.0.0.0"
+        vm_cluster_id = "primary"
+      }
+    }
   }
 
   assert {
@@ -62,6 +77,11 @@ run "plans_local_vault_and_cluster" {
   assert {
     condition     = oci_database_exadb_vm_cluster.these["primary"].exascale_db_storage_vault_id == module.exascale_db_storage_vault.exascale_db_storage_vaults["primary"].id
     error_message = "A local VM cluster must reference its locally created storage vault."
+  }
+
+  assert {
+    condition     = length(module.common_database.database_resources.database_homes) == 1
+    error_message = "A DB Home using a local ExaDB-XS VM Cluster key must be created through common-database."
   }
 }
 
@@ -109,6 +129,34 @@ run "plans_cluster_with_external_vault" {
   assert {
     condition     = oci_database_exadb_vm_cluster.these["external"].exascale_db_storage_vault_id == "ocid1.exascaledbstoragevault.oc1..external"
     error_message = "The cluster must resolve the external vault logical key to its OCID."
+  }
+}
+
+run "plans_db_home_on_external_exadb_xs_cluster" {
+  command = apply
+
+  variables {
+    exadb_xs_dependency = {
+      exadb_vm_clusters = {
+        external = {
+          id             = "ocid1.exadbvmcluster.oc1..external"
+          compartment_id = "ocid1.compartment.oc1..database"
+        }
+      }
+    }
+
+    cloud_db_homes_configuration = {
+      primary = {
+        display_name  = "primary-db-home"
+        db_version    = "26.0.0.0"
+        vm_cluster_id = "external"
+      }
+    }
+  }
+
+  assert {
+    condition     = length(module.common_database.database_resources.database_homes) == 1
+    error_message = "An ExaDB-XS VM Cluster supplied through exadb_xs_dependency must support a DB Home."
   }
 }
 
@@ -457,43 +505,4 @@ run "rejects_block_file_system_below_console_minimum" {
   }
 
   expect_failures = [var.exadb_xs_configuration]
-}
-
-run "rejects_19c_db_home_on_smart_storage" {
-  command = plan
-
-  variables {
-    cloud_db_homes_configuration = {
-      invalid = {
-        db_version    = "19.0.0.0"
-        display_name  = "invalid-home"
-        source        = "VM_CLUSTER_NEW"
-        vm_cluster_id = "smart"
-      }
-    }
-    exadb_xs_configuration = {
-      exadb_vm_clusters = {
-        smart = {
-          availability_domain          = "test:AD-1"
-          backup_subnet_id             = "ocid1.subnet.oc1..backup"
-          compartment_id               = "ocid1.compartment.oc1..test"
-          display_name                 = "smart-cluster"
-          exascale_db_storage_vault_id = "ocid1.exascaledbstoragevault.oc1..vault"
-          grid_image_id                = "ocid1.image.oc1..image"
-          hostname                     = "exaxs10"
-          shape                        = "EXADB_XS"
-          ssh_public_keys              = ["ssh-rsa test"]
-          subnet_id                    = "ocid1.subnet.oc1..client"
-          node_names                   = ["node-1"]
-          node_config = {
-            enabled_ecpu_count_per_node              = 8
-            total_ecpu_count_per_node                = 8
-            vm_file_system_storage_size_gbs_per_node = 220
-          }
-        }
-      }
-    }
-  }
-
-  expect_failures = [terraform_data.smart_storage_database_compatibility["smart"]]
 }

@@ -20,5 +20,4 @@ module "exascale_db_storage_vault" {
   exascale_db_storage_vaults_configuration = local.exascale_db_storage_vaults_configuration
   compartments_dependency                  = var.compartments_dependency
   subscription_dependency                  = var.subscription_dependency
-  exadata_infrastructure_dependency        = var.exadata_infrastructure_dependency
 }
