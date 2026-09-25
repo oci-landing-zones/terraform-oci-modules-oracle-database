@@ -11,6 +11,11 @@ output "cloud_vm_clusters" {
   value       = var.enable_output ? oci_database_cloud_vm_cluster.these : null
 }
 
+output "exascale_db_storage_vaults" {
+  description = "The deployed Exascale DB Storage Vault resources on Dedicated Infrastructure."
+  value       = var.enable_output ? module.exascale_db_storage_vault.exascale_db_storage_vaults : null
+}
+
 output "database_homes" {
   description = "The deployed Databases Homes in the OCI Database Service."
   value       = var.enable_output ? module.common_database.database_homes : null
@@ -33,6 +38,7 @@ locals {
   cloud_exadata_database_resources = {
     cloud_exadata_infrastructures = { for k, v in oci_database_cloud_exadata_infrastructure.these : k => { "id" : v.id, "compartment_id" : v.compartment_id } }
     cloud_vm_clusters             = { for k, v in oci_database_cloud_vm_cluster.these : k => { "id" : v.id, "compartment_id" : v.compartment_id } }
+    exascale_db_storage_vaults    = coalesce(try(module.exascale_db_storage_vault.exascale_db_storage_vault_resources, null), {})
     database_homes                = try(module.common_database.database_resources.database_homes, {})
     databases                     = try(module.common_database.database_resources.databases, {})
     pluggable_databases           = try(module.common_database.database_resources.pluggable_databases, {})

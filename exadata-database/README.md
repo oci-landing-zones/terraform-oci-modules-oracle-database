@@ -10,6 +10,7 @@ Check [module specification](./SPEC.md) for the complete typed contract, managed
 - [How to Invoke the Module](#invoke)
 - [Module Functioning](#functioning)
   - [Cloud Exadata Infrastructures](#cloud-exadata-infrastructures)
+  - [Exascale DB Storage Vaults](#exascale-db-storage-vaults)
   - [Cloud VM Clusters](#cloud-vm-clusters)
   - [Cloud DB Homes](#cloud-db-homes)
   - [Databases](#databases)
@@ -26,6 +27,7 @@ Check [module specification](./SPEC.md) for the complete typed contract, managed
 The module supports:
 
 - Exadata Infrastructure
+- Exascale DB Storage Vaults associated with Dedicated Infrastructure
 - VM Clusters
 - Database Home
 - Container Database
@@ -42,7 +44,7 @@ Use the released module source in a root module:
 
 ```hcl
 module "exadata_database" {
-  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//exadata-database?ref=v1.2.0"
+  source = "github.com/oci-landing-zones/terraform-oci-modules-oracle-database//exadata-database?ref=v1.2.0"
 
   # Configure the inputs required by the selected deployment pattern.
 }
@@ -53,6 +55,8 @@ This module supports being passed an object containing references to OCIDs (Orac
 ## <a name="requirements">Requirements</a>
 
 Before deploying the Exadata Cloud Infrastructure, VM Cluster, Database Home, Database, and PDB resources, ensure the following prerequisites are met:
+
+- Terraform `>= 1.5.0` and OCI provider `>= 8.0.0`.
 
 - [**IAM Policies**](https://docs.oracle.com/en-us/iaas/exadatacloud/doc/ecs-policy-details.html)  
   Ensure you have access to an active OCI Tenancy with sufficient permissions to create networking and database resources.
@@ -121,6 +125,7 @@ The `exadata_database_dependency` input enables multi-stack deployments where Ex
 
 - cloud_exadata_infrastructures
 - cloud_vm_clusters
+- exascale_db_storage_vaults
 - database_homes
 - databases
 - pluggable_databases
@@ -152,6 +157,30 @@ Each Exadata infrastructure configuration object has the following attributes:
 OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored. Other defined tags and all freeform tags remain managed by Terraform.
 
 For more details on this resource, please see OCI Terraform Documentation for [oci_database_cloud_exadata_infrastructure](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_exadata_infrastructure)
+
+### <a name="exascale-db-storage-vaults">Exascale DB Storage Vaults</a>
+
+`exascale_db_storage_vaults_configuration` is forwarded to the reusable
+[`../exascale-db-storage-vault`](../exascale-db-storage-vault) module. A vault
+uses the same OCI resource as an ExaDB-XS vault, but Dedicated Infrastructure
+mode is selected by setting `exadata_infrastructure_id` to a literal Cloud
+Exadata Infrastructure OCID or a key from either the locally configured
+infrastructure map or `exadata_database_dependency.cloud_exadata_infrastructures`.
+
+The configuration requires an availability domain, display name, and database
+storage capacity. For Dedicated Infrastructure, the vault size must be at least
+2,000 GB; OCI determines the live maximum according to capacity allocated to
+that infrastructure. The child module owns all vault validation, tags, and
+lifecycle behavior. It requires OCI provider `>= 8.0.0`.
+
+This addition creates and publishes the vault only. It does not alter existing
+Cloud VM Cluster configuration or attach a vault to a VM Cluster; that provider
+integration needs separate service-contract confirmation.
+
+The Exadata-D wrapper deliberately forwards this configuration as an untyped
+value. The reusable `exascale-db-storage-vault` child module is the single
+owner of the typed vault contract, its validation, and its lifecycle policy.
+This avoids two independent copies of the same validation rules drifting apart.
 
 
 ### <a name="cloud-vm-clusters">Cloud VM Clusters</a>
@@ -205,6 +234,14 @@ For more details on this resource, please see OCI Terraform Documentation for [o
 
 
 ### <a name="cloud-db-homes">Cloud DB Homes</a>
+`cloud_db_homes_configuration`, `databases_configuration`, and
+`pluggable_databases_configuration` are forwarded unchanged to
+[`../common-database`](../common-database). That child module is the single
+source of truth for their Terraform types and validation rules. The summaries
+below describe the supported behavior; consult the
+[common-database input contract](../common-database/SPEC.md#inputs) for the
+authoritative schema.
+
 - cloud_db_homes_configuration: OCI Database Cloud Database Home Configuration. This is a map of DB Home configurations.
 
 Each DB Home object has the following attributes:
@@ -319,7 +356,7 @@ databases_configuration = {
 ```
 
 ## Outputs
-The module keeps the raw resource outputs for direct module compatibility and also publishes `cloud_exadata_database_resources` for downstream dependency consumption. Raw DB Home, database, and pluggable database outputs are sensitive because they can include password-backed attributes. The `cloud_exadata_database_resources` output contains minimal maps for Exadata infrastructures, VM clusters, DB homes, databases, and pluggable databases.
+The module keeps the raw resource outputs for direct module compatibility and also publishes `cloud_exadata_database_resources` for downstream dependency consumption. Raw DB Home, database, and pluggable database outputs are sensitive because they can include password-backed attributes. The `cloud_exadata_database_resources` output contains minimal maps for Exadata infrastructures, Exascale DB Storage Vaults, VM clusters, DB homes, databases, and pluggable databases.
 
 The canonical Cloud Exadata Database dependency output is `cloud_exadata_database_resources`. The `cloud_exadata_database_dependency` output exposes the same minimal shape for Orchestrator dependency consumption. The shorter `exadata_database_resources` and `exadata_database_dependency` outputs are aliases for integrations that still read the shorter Exadata names instead of falling back to raw resource outputs.
 
@@ -327,7 +364,7 @@ The canonical Cloud Exadata Database dependency output is `cloud_exadata_databas
 ## <a name="related">Related Documentation</a>
 This repository is part of a broader collection of repositories containing modules that help customers deploy and manage various OCI resources:
 
-- [Exadata](https://github.com/oci-landing-zones/terraform-oci-modules-exadata) - current repository
+- [Oracle Database modules](https://github.com/oci-landing-zones/terraform-oci-modules-oracle-database) - current repository
 - [Identity & Access Management](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-iam)
 - [Networking](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-networking)
 - [Governance](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-governance)
