@@ -5,8 +5,9 @@
 1. Added the `exadb-xs` module for Exadata Database Service on Exascale Infrastructure.
 2. Added the reusable `exascale-db-storage-vault` module, used by ExaDB-XS and available to the Exadata-D wrapper for Dedicated Infrastructure vault creation.
 3. Added Exadata-D outputs for Exascale DB Storage Vaults.
-4. Added Exadata Cloud@Customer Infrastructure OCID and dependency support to the reusable Exascale DB Storage Vault module. Configuring Cloud@Customer Exascale capacity and consuming the vault from a VM Cluster remain the responsibility of a future Cloud@Customer module.
-5. Added Common Database support for DB Homes on externally managed Exadata Cloud@Customer VM Clusters.
+4. Added optional Exascale DB Storage Vault selection to Exadata-D Cloud VM Clusters. A VM Cluster can use a local vault, an external logical dependency, or a literal vault OCID while retaining the existing no-vault behavior.
+5. Added Exadata Cloud@Customer Infrastructure OCID and dependency support to the reusable Exascale DB Storage Vault module. Configuring Cloud@Customer Exascale capacity and consuming the vault from a VM Cluster remain the responsibility of a future Cloud@Customer module.
+6. Added Common Database support for DB Homes on externally managed Exadata Cloud@Customer VM Clusters.
 
 ## Compatibility
 

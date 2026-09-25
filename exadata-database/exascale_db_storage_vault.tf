@@ -16,8 +16,10 @@ locals {
 module "exascale_db_storage_vault" {
   source = "../exascale-db-storage-vault"
 
-  module_name                              = "${var.module_name}-exascale-db-storage-vault"
-  enable_output                            = var.enable_output
+  module_name = "${var.module_name}-exascale-db-storage-vault"
+  # The parent must resolve locally created vault IDs even when its public
+  # outputs are disabled. The parent itself still gates every public output.
+  enable_output                            = true
   exascale_db_storage_vaults_configuration = var.exascale_db_storage_vaults_configuration
   compartments_dependency                  = var.compartments_dependency
   subscription_dependency                  = var.subscription_dependency

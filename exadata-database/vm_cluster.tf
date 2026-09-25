@@ -4,6 +4,7 @@
 locals {
   cloud_exadata_infrastructures_input      = try(var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures, {})
   cloud_exadata_infrastructures_dependency = coalesce(try(var.exadata_database_dependency.cloud_exadata_infrastructures, null), {})
+  exascale_db_storage_vaults_dependency    = coalesce(try(var.exadata_database_dependency.exascale_db_storage_vaults, null), {})
   compartments_dependency_input            = var.compartments_dependency != null ? var.compartments_dependency : {}
   default_compartment_id_resolves = var.default_compartment_id != null ? (
     can(regex("^ocid1\\.(compartment|tenancy)\\.", var.default_compartment_id)) ||
@@ -11,8 +12,15 @@ locals {
   ) : false
 
   cloud_vm_clusters = { for vm_key, vm in coalesce(var.cloud_vm_clusters_configuration, {}) : vm_key => merge(vm, {
-    subscription_id_input = vm.subscription_id
-    exadata_infra_id      = can(regex("^ocid1\\.cloudexadatainfrastructure.", vm.exadata_infrastructure_id)) ? vm.exadata_infrastructure_id : try(oci_database_cloud_exadata_infrastructure.these[vm.exadata_infrastructure_id].id, var.exadata_database_dependency.cloud_exadata_infrastructures[vm.exadata_infrastructure_id].id, null)
+    subscription_id_input              = vm.subscription_id
+    exascale_db_storage_vault_id_input = vm.exascale_db_storage_vault_id
+    exascale_db_storage_vault_id = vm.exascale_db_storage_vault_id == null ? null : (
+      can(regex("^ocid1\\.exascaledbstoragevault\\.", vm.exascale_db_storage_vault_id)) ? vm.exascale_db_storage_vault_id : try(
+        module.exascale_db_storage_vault.exascale_db_storage_vault_resources[vm.exascale_db_storage_vault_id].id,
+        try(local.exascale_db_storage_vaults_dependency[vm.exascale_db_storage_vault_id].id, null)
+      )
+    )
+    exadata_infra_id = can(regex("^ocid1\\.cloudexadatainfrastructure.", vm.exadata_infrastructure_id)) ? vm.exadata_infrastructure_id : try(oci_database_cloud_exadata_infrastructure.these[vm.exadata_infrastructure_id].id, var.exadata_database_dependency.cloud_exadata_infrastructures[vm.exadata_infrastructure_id].id, null)
     compartment_id = vm.compartment_id != null ? (
       can(regex("^ocid1\\.(compartment|tenancy)\\.", vm.compartment_id)) ? vm.compartment_id : try(var.compartments_dependency[vm.compartment_id].id, null)) : try(coalesce(try(oci_database_cloud_exadata_infrastructure.these[vm.exadata_infrastructure_id].compartment_id, null), try(var.exadata_database_dependency.cloud_exadata_infrastructures[vm.exadata_infrastructure_id].compartment_id, null), (
         can(regex("^ocid1\\.(compartment|tenancy)\\.", var.default_compartment_id)) ? var.default_compartment_id : try(var.compartments_dependency[var.default_compartment_id].id, null)
@@ -68,6 +76,7 @@ resource "oci_database_cloud_vm_cluster" "these" {
   backup_subnet_id                = each.value.backup_subnet_id
   data_storage_size_in_tbs        = each.value.data_storage_size_in_tbs
   db_node_storage_size_in_gbs     = each.value.db_node_storage_size_in_gbs
+  exascale_db_storage_vault_id    = each.value.exascale_db_storage_vault_id
   memory_size_in_gbs              = each.value.memory_size_in_gbs
 
   # Optional
@@ -166,6 +175,11 @@ resource "oci_database_cloud_vm_cluster" "these" {
     precondition {
       condition     = each.value.subscription_id_input == null ? true : (each.value.subscription_id != null && can(regex("^ocid1\\.", each.value.subscription_id)))
       error_message = "subscription_id must be an OCID or a key in subscription_dependency."
+    }
+
+    precondition {
+      condition     = each.value.exascale_db_storage_vault_id_input == null ? true : (each.value.exascale_db_storage_vault_id != null && can(regex("^ocid1\\.exascaledbstoragevault\\.", each.value.exascale_db_storage_vault_id)))
+      error_message = "exascale_db_storage_vault_id must be an Exascale DB Storage Vault OCID, a local vault key, or a key in exadata_database_dependency.exascale_db_storage_vaults."
     }
 
     ignore_changes = [

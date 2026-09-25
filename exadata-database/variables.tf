@@ -227,13 +227,14 @@ variable "cloud_vm_clusters_configuration" {
       is_health_monitoring_enabled  = optional(bool)
       is_incident_logs_enabled      = optional(bool)
     }))
-    data_storage_percentage     = optional(number) #. Accepted values are 35, 40, 60 and 80. 
-    data_storage_size_in_tbs    = optional(number)
-    db_node_storage_size_in_gbs = optional(number)
-    db_servers                  = optional(list(string))
-    defined_tags                = optional(map(string))
-    freeform_tags               = optional(map(string))
-    domain                      = optional(string)
+    data_storage_percentage      = optional(number) #. Accepted values are 35, 40, 60 and 80.
+    data_storage_size_in_tbs     = optional(number)
+    db_node_storage_size_in_gbs  = optional(number)
+    db_servers                   = optional(list(string))
+    defined_tags                 = optional(map(string))
+    exascale_db_storage_vault_id = optional(string) # Literal vault OCID or key in local/external exascale_db_storage_vaults.
+    freeform_tags                = optional(map(string))
+    domain                       = optional(string)
     file_system_configuration_details = optional(map(object({
       file_system_size_gb = optional(number)
       mount_point         = optional(string)

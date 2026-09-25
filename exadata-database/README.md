@@ -173,9 +173,12 @@ storage capacity. For Dedicated Infrastructure, the vault size must be at least
 that infrastructure. The child module owns all vault validation, tags, and
 lifecycle behavior. It requires OCI provider `>= 8.0.0`.
 
-This addition creates and publishes the vault only. It does not alter existing
-Cloud VM Cluster configuration or attach a vault to a VM Cluster; that provider
-integration needs separate service-contract confirmation.
+Cloud VM Clusters may optionally set `exascale_db_storage_vault_id` to attach a
+vault. The value can be a literal vault OCID, a logical key for a vault created
+by this module, or a key in
+`exadata_database_dependency.exascale_db_storage_vaults`. Omitting it retains
+the existing no-vault behavior. A configured key that cannot be resolved fails
+during planning before OCI is called.
 
 The Exadata-D wrapper deliberately forwards this configuration as an untyped
 value. The reusable `exascale-db-storage-vault` child module is the single
@@ -205,6 +208,7 @@ backup_network_nsg_ids: Backup network NSG IDs of the VM cluster.
 - db_node_storage_size_in_gbs: DB node storage size in GBs of the VM cluster.
 - db_servers: DB servers of the VM cluster.
 - defined_tags: Defined tags for the VM cluster.
+- exascale_db_storage_vault_id: Optional Exascale DB Storage Vault OCID, a logical key for a vault created by this module, or a key in `exadata_database_dependency.exascale_db_storage_vaults`.
 - freeform_tags: Freeform tags for the VM cluster.
 - domain: Domain of the VM cluster.
 - file_system_configuration_details: File system configuration details for the VM cluster.
