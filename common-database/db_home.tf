@@ -290,8 +290,8 @@ resource "oci_database_db_home" "these" {
     }
 
     precondition {
-      condition     = each.value.source != "VM_CLUSTER_NEW" ? true : (each.value.vm_cluster_id != null && can(regex("^ocid1\\.cloudvmcluster\\.", each.value.vm_cluster_id)))
-      error_message = "vm_cluster_id must be a Cloud VM Cluster OCID or a key in vm_cluster_dependency."
+      condition     = each.value.source != "VM_CLUSTER_NEW" ? true : (each.value.vm_cluster_id != null && can(regex("^ocid1\\.(cloudvmcluster|exadbvmcluster)\\.", each.value.vm_cluster_id)))
+      error_message = "vm_cluster_id must be a Cloud VM Cluster or ExaDB-XS VM Cluster OCID, or a key in vm_cluster_dependency."
     }
 
     precondition {
