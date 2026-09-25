@@ -5,8 +5,9 @@ Storage Vault is an OCI Database storage resource; it is not an OCI Vault/KMS
 vault or secret store.
 
 The module is intentionally neutral: it creates vaults without creating a VM
-Cluster. A vault can be used by ExaDB-XS or, when associated with a Cloud
-Exadata Infrastructure, by a Dedicated Infrastructure workflow.
+Cluster. A vault can be used by ExaDB-XS or, when associated with an Exadata
+infrastructure, by an Exadata Cloud Service Dedicated Infrastructure or
+Exadata Cloud@Customer workflow.
 
 ## Use as a child module
 
@@ -38,10 +39,13 @@ module "storage_vault" {
 
 ## Dedicated Infrastructure mode
 
-For a vault associated with an existing or locally-created Cloud Exadata
-Infrastructure, set `exadata_infrastructure_id` to an OCID or a key in
-`exadata_infrastructure_dependency`. Terraform then orders the vault after the
-Infrastructure in the same plan when the parent passes the generated ID.
+For a vault associated with an existing or locally-created Exadata
+infrastructure, set `exadata_infrastructure_id` to an OCID or a key in
+`exadata_infrastructure_dependency`. It accepts either a Cloud Exadata
+Infrastructure OCID (`ocid1.cloudexadatainfrastructure...`) or an Exadata
+Cloud@Customer Infrastructure OCID (`ocid1.exadatainfrastructure...`).
+Terraform then orders the vault after the Infrastructure in the same plan when
+the parent passes the generated ID.
 
 ```hcl
 exascale_db_storage_vaults_configuration = {
@@ -62,6 +66,12 @@ mandatory per cluster. The current Exadata-D parent creates and publishes a
 Dedicated Infrastructure vault, but does not yet change the existing Cloud VM
 Cluster contract to consume it.
 
+For Exadata Cloud@Customer, the future consumer must first configure Exascale
+capacity on the infrastructure, then pass the vault ID to
+`oci_database_vm_cluster.exascale_db_storage_vault_id`. This module validates
+the Infrastructure OCID kind but does not configure capacity or create that VM
+Cluster.
+
 ## Outputs and ownership
 
 `exascale_db_storage_vault_dependency` publishes a stable map with `id` and
@@ -73,8 +83,9 @@ same vault again.
 
 - Terraform `>= 1.5.0` and OCI provider `>= 8.0.0`.
 - A non-Dedicated vault requires 300–100,000 GB.
-- A Dedicated Infrastructure-associated vault requires at least 2,000 GB; its
-  maximum is still a live-service constraint.
+- An infrastructure-associated vault requires at least 2,000 GB; its maximum
+  is still a live-service constraint. Cloud@Customer additionally requires
+  Exascale capacity to be configured on the infrastructure.
 - Flash Cache percentage is zero or 34–300; autoscaling limit cannot be lower
   than requested capacity.
 - `defined_tags` are ignored for operational compatibility; `freeform_tags`

@@ -55,8 +55,8 @@ resource "oci_database_exascale_db_storage_vault" "these" {
       error_message = "exascale_db_storage_vaults_configuration.exascale_db_storage_vaults[*].compartment_id must be a compartment OCID, the tenancy OCID, or a key in compartments_dependency."
     }
     precondition {
-      condition     = each.value.exadata_infrastructure_id_input == null ? true : (each.value.exadata_infrastructure_id != null && can(regex("^ocid1\\.cloudexadatainfrastructure\\.", each.value.exadata_infrastructure_id)))
-      error_message = "exascale_db_storage_vaults_configuration.exascale_db_storage_vaults[*].exadata_infrastructure_id must be a Cloud Exadata Infrastructure OCID or a key in exadata_infrastructure_dependency."
+      condition     = each.value.exadata_infrastructure_id_input == null ? true : (each.value.exadata_infrastructure_id != null && can(regex("^ocid1\\.(cloudexadatainfrastructure|exadatainfrastructure)\\.", each.value.exadata_infrastructure_id)))
+      error_message = "exascale_db_storage_vaults_configuration.exascale_db_storage_vaults[*].exadata_infrastructure_id must be a Cloud Exadata Infrastructure or Exadata Cloud@Customer Infrastructure OCID, or a key in exadata_infrastructure_dependency."
     }
     precondition {
       condition     = each.value.subscription_id_input == null ? true : (each.value.subscription_id != null && can(regex("^ocid1\\.", each.value.subscription_id)))
