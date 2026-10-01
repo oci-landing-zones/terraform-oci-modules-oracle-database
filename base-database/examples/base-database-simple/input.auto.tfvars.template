@@ -1,0 +1,29 @@
+# OCI authentication and tenancy settings.
+tenancy_ocid         = "ocid1.tenancy.oc1..example"
+region               = "eu-frankfurt-1"
+user_ocid            = "ocid1.user.oc1..example"
+fingerprint          = "XX:XX:XX:XX"
+private_key_path     = "/path/to/your/key"
+private_key_password = ""
+
+db_systems_configuration = {
+  default_compartment_id = "ocid1.compartment.oc1..example"
+  default_subnet_id      = "ocid1.subnet.oc1..example"
+
+  db_systems = {
+    example = {
+      display_name    = "base-database-example"
+      ssh_public_keys = ["<ssh-public-key>"]
+      shape           = "VM.Standard.E5.Flex"
+      cpu_core_count  = 1
+      db_home = {
+        database = {
+          db_name        = "EXAMPLE"
+          db_version     = "19.32.0.0"
+          admin_password = "<database-admin-password>"
+          pdb_name       = "EXAMPLEPDB"
+        }
+      }
+    }
+  }
+}
