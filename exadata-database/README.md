@@ -194,7 +194,10 @@ backup_network_nsg_ids: Backup network NSG IDs of the VM cluster.
 - subscription_id: Subscription ID of the VM cluster.
 - system_version: System version of the VM cluster.
 - time_zone: Time zone of the VM cluster.
+- timeouts: Optional object with `create`, `update`, and `delete` operation timeouts, for example `timeouts = { create = "18h" }`. Omitted values use the OCI provider defaults, currently 12 hours for each operation.
 - vm_cluster_type: VM cluster type.
+
+Timeouts control how long Terraform waits; increasing them does not resolve a stalled OCI work request.
 
 For compatibility, the module does not manage later changes to:
 - gi_version

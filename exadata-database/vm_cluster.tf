@@ -121,6 +121,12 @@ resource "oci_database_cloud_vm_cluster" "these" {
     }
   }
 
+  timeouts {
+    create = try(each.value.timeouts.create, null)
+    update = try(each.value.timeouts.update, null)
+    delete = try(each.value.timeouts.delete, null)
+  }
+
   lifecycle {
     precondition {
       condition     = each.value.exadata_infra_id != null && can(regex("^ocid1\\.cloudexadatainfrastructure\\.", each.value.exadata_infra_id))

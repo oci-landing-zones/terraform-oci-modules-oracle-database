@@ -254,6 +254,11 @@ variable "cloud_vm_clusters_configuration" {
     subscription_id = optional(string)
     system_version  = optional(string)
     time_zone       = optional(string)
+    timeouts = optional(object({
+      create = optional(string)
+      update = optional(string)
+      delete = optional(string)
+    }))
     vm_cluster_type = optional(string)
   }))
 }
