@@ -173,7 +173,7 @@ variable "cloud_exadata_infrastructures_configuration" {
   validation {
     condition = var.cloud_exadata_infrastructures_configuration == null ? true : alltrue([
       for k, v in var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures :
-      (v.database_server_type == null || contains(["X11MV", "X11M-BASE", "X11M", "X11M-L", "X11M-XL"], v.database_server_type))
+      (v.database_server_type == null ? true : contains(["X11MV", "X11M-BASE", "X11M", "X11M-L", "X11M-XL"], v.database_server_type))
     ])
     error_message = "Invalid database server type, accepted values are X11MV, X11M-BASE, X11M, X11M-L, and X11M-XL."
   }
@@ -181,7 +181,7 @@ variable "cloud_exadata_infrastructures_configuration" {
   validation {
     condition = var.cloud_exadata_infrastructures_configuration == null ? true : alltrue([
       for k, v in var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures :
-      (v.storage_server_type == null || contains(["X11MV-HC", "X11M-BASE", "X11M-HC"], v.storage_server_type))
+      (v.storage_server_type == null ? true : contains(["X11MV-HC", "X11M-BASE", "X11M-HC"], v.storage_server_type))
     ])
     error_message = "Invalid storage server type, accepted values are X11MV-HC, X11M-BASE, and X11M-HC."
   }
