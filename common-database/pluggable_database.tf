@@ -1,20 +1,21 @@
 # Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 locals {
+  # Default nullable maps without propagating password sensitivity to resource keys.
   pdb_container_admin_password_secret_id_inputs = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.container_database_admin_password_secret_id), "")
+    for key, pdb in merge({}, var.pluggable_databases_configuration) : key => try(trimspace(pdb.container_database_admin_password_secret_id), "")
   }
   pdb_admin_password_secret_id_inputs = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.pdb_admin_password_secret_id), "")
+    for key, pdb in merge({}, var.pluggable_databases_configuration) : key => try(trimspace(pdb.pdb_admin_password_secret_id), "")
   }
   pdb_dblink_user_password_secret_id_inputs = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.pdb_creation_type_details.dblink_user_password_secret_id), "")
+    for key, pdb in merge({}, var.pluggable_databases_configuration) : key => try(trimspace(pdb.pdb_creation_type_details.dblink_user_password_secret_id), "")
   }
   pdb_source_container_admin_password_secret_id_inputs = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.pdb_creation_type_details.source_container_database_admin_password_secret_id), "")
+    for key, pdb in merge({}, var.pluggable_databases_configuration) : key => try(trimspace(pdb.pdb_creation_type_details.source_container_database_admin_password_secret_id), "")
   }
   pdb_tde_wallet_password_secret_id_inputs = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => try(trimspace(pdb.tde_wallet_password_secret_id), "")
+    for key, pdb in merge({}, var.pluggable_databases_configuration) : key => try(trimspace(pdb.tde_wallet_password_secret_id), "")
   }
 
   pdb_container_admin_password_secret_ids = {
@@ -34,15 +35,15 @@ locals {
   }
 
   pdb_admin_passwords = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.pdb_admin_password) > 0, false) ? pdb.pdb_admin_password : try(base64decode(data.oci_secrets_secretbundle.pdb_admin_password[key].secret_bundle_content[0].content), null))
+    for key, pdb in merge({}, var.pluggable_databases_configuration) : key => sensitive(try(length(pdb.pdb_admin_password) > 0, false) ? pdb.pdb_admin_password : try(base64decode(data.oci_secrets_secretbundle.pdb_admin_password[key].secret_bundle_content[0].content), null))
   }
   pdb_tde_wallet_passwords = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) : key => sensitive(try(length(pdb.tde_wallet_password) > 0, false) ? pdb.tde_wallet_password : try(base64decode(data.oci_secrets_secretbundle.pdb_tde_wallet_password[key].secret_bundle_content[0].content), null))
+    for key, pdb in merge({}, var.pluggable_databases_configuration) : key => sensitive(try(length(pdb.tde_wallet_password) > 0, false) ? pdb.tde_wallet_password : try(base64decode(data.oci_secrets_secretbundle.pdb_tde_wallet_password[key].secret_bundle_content[0].content), null))
   }
 
   # Resolve references and defaults for pluggable database creation
   pluggable_databases = {
-    for key, pdb in coalesce(var.pluggable_databases_configuration, {}) :
+    for key, pdb in merge({}, var.pluggable_databases_configuration) :
     key => merge(pdb, {
       # Resolve Container Database ID: use as-is if OCID, or reference created container DB by key
       source_pluggable_database_id_input = try(pdb.pdb_creation_type_details.source_pluggable_database_id, null)
@@ -136,7 +137,7 @@ data "oci_secrets_secretbundle" "pdb_tde_wallet_password" {
 resource "oci_database_pluggable_database" "these" {
   # Match the ARS pattern: establish resource identity from the original
   # configuration and resolve sensitive passwords in resource attributes.
-  for_each = coalesce(var.pluggable_databases_configuration, {})
+  for_each = merge({}, var.pluggable_databases_configuration)
   #Required
   container_database_id = local.pluggable_databases[each.key].container_database_id
   pdb_name              = local.pluggable_databases[each.key].pdb_name
@@ -232,6 +233,8 @@ resource "oci_database_pluggable_database" "these" {
       defined_tags["Oracle-Tags.CreatedBy"],
       defined_tags["Oracle-Tags.CreatedOn"],
       pdb_admin_password,
+      should_create_pdb_backup,
+      should_pdb_admin_account_be_locked,
       tde_wallet_password
     ]
   }

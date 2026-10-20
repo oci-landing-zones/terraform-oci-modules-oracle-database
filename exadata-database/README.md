@@ -131,7 +131,9 @@ For PDB clone operations, `pdb_creation_type_details.source_pluggable_database_i
 ### <a name="cloud-exadata-infrastructures">Cloud Exadata Infrastructures</a>
 - cloud_exadata_infrastructures_configuration: Exadata infrastructure configuration. This is an object with the following attributes:
   - default_maintenance_window: Default maintenance window configuration. It supports `custom_action_timeout_in_mins`, `days_of_week`, `hours_of_day`, `is_custom_action_timeout_enabled`, `is_monthly_patching_enabled`, `lead_time_in_weeks`, `months`, `patching_mode`, `preference`, and `weeks_of_month`.
-  - cloud_exadata_infrastructures: A map of Exadata infrastructure configurations.
+  - cloud_exadata_infrastructures: An optional map of Exadata infrastructure configurations, defaulting to an empty map.
+
+Set `cloud_exadata_infrastructures_configuration` to `null` or `{}` when this stack creates no Exadata infrastructure. VM Clusters can still reference existing infrastructure through literal OCIDs or `exadata_database_dependency.cloud_exadata_infrastructures`.
 
 Each Exadata infrastructure configuration object has the following attributes:
 
@@ -207,6 +209,8 @@ For more details on this resource, please see OCI Terraform Documentation for [o
 ### <a name="cloud-db-homes">Cloud DB Homes</a>
 - cloud_db_homes_configuration: OCI Database Cloud Database Home Configuration. This is a map of DB Home configurations.
 
+DB Home, CDB, and PDB input validation is performed by the Common Database child module; validation errors for these inputs are reported from that module.
+
 Each DB Home object has the following attributes:
 - database_software_image_id: The database software image OCID
 - db_system_id: The OCID of the DB system.
@@ -254,6 +258,8 @@ Each Database Configuration object has the following attributes:
 
 The module does not manage later changes to `db_home_id`, `db_version`, or those creation-time credentials. Keeping `db_home_id` unchanged allows an out-of-place DB Home patch to remain in place. The OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; other defined tags and freeform tags remain managed.
 
+`source` selects the creation operation and is ignored after creation. OCI does not return it when reading an existing CDB, so an imported CDB does not need to be replaced to populate this value. Keep a valid `source` and its required inputs in the configuration; changing `source` on an existing CDB does not restore it or create a Data Guard standby.
+
 OCI tag defaults can add tenancy-specific defined tags when a CDB is created. To manage one of those tags with Terraform, declare its key and value in `default_defined_tags` or `database.defined_tags`. Direct module callers that intentionally do not want Terraform to manage a particular tag can add its fully qualified key to the OCI provider's `ignore_defined_tags` setting:
 
 ```hcl
@@ -287,6 +293,8 @@ Each PDB Configuration object has the following attributes:
 
 `container_database_admin_password`, `pdb_admin_password`, and `tde_wallet_password` are sensitive creation-time values. OCI provenance tags are ignored; other defined tags and freeform tags remain managed. Changes to `container_database_id` remain visible in the Terraform plan.
 
+`should_create_pdb_backup` and `should_pdb_admin_account_be_locked` apply when creating a PDB and are ignored after creation, including for imported PDBs. Changing them on an existing PDB does not take a backup or change the admin account lock status.
+
 ### <a name="password-secrets">Password Secrets</a>
 
 Every password consumed by the DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. The Common Database child module reads the `CURRENT` secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting password as sensitive before passing it to the OCI provider; the Exadata wrapper only passes the configuration and dependency map through unchanged.
@@ -296,6 +304,8 @@ The supported pairs cover legacy inline CDB administration, backup TDE, encrypti
 The deprecated legacy inline `source_encryption_key_location_details` block remains accepted only for 1.1.0 input compatibility and is not consumed by the DB Home provider path; its fields therefore remain unmanaged.
 
 For every legacy inline CDB and standalone CDB, define exactly one of `admin_password` or `admin_password_secret_id`. When a standalone CDB uses `source = "DATAGUARD"`, also define exactly one of `database_admin_password` or `database_admin_password_secret_id`, and exactly one of `source_tde_wallet_password` or `source_tde_wallet_password_secret_id`. For all other password pairs, define at most one. An empty literal is treated as absent. Password-policy validation applies equally to literal and Vault-backed administration and TDE wallet passwords.
+
+Password attributes can receive values from variables declared with `sensitive = true` or from `sensitive(...)` expressions. Keep the configuration map and its resource keys non-sensitive; mark the password values as sensitive rather than the entire configuration.
 
 Prefer the `*_secret_id` attributes to avoid committing literal passwords to Git and to centralize rotation and audit activity in OCI Vault. Regardless of the source, Terraform retrieves the password and stores it in the Terraform state file. Treat the state as sensitive data and protect it with an encrypted backend and appropriately restricted access.
 
