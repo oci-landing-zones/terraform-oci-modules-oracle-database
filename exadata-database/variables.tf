@@ -126,7 +126,7 @@ variable "cloud_exadata_infrastructures_configuration" {
       lead_time_in_weeks = optional(number)
     }))
 
-    cloud_exadata_infrastructures = map(object({
+    cloud_exadata_infrastructures = optional(map(object({
       # Attributes for oci_database_cloud_exadata_infrastructure (from https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_exadata_infrastructure)
       display_name        = string
       shape               = string           # Possible values: Exadata.X11MV, Exadata.X11M, Exadata.X9M, Exadata.X8M
@@ -159,7 +159,7 @@ variable "cloud_exadata_infrastructures_configuration" {
       storage_count       = optional(number)
       storage_server_type = optional(string) # X11MV-HC, X11M-BASE, and X11M-HC
       subscription_id     = optional(string)
-    }))
+    })), {})
   })
 
   validation {
@@ -173,7 +173,7 @@ variable "cloud_exadata_infrastructures_configuration" {
   validation {
     condition = var.cloud_exadata_infrastructures_configuration == null ? true : alltrue([
       for k, v in var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures :
-      (v.database_server_type == null || contains(["X11MV", "X11M-BASE", "X11M", "X11M-L", "X11M-XL"], v.database_server_type))
+      (v.database_server_type == null ? true : contains(["X11MV", "X11M-BASE", "X11M", "X11M-L", "X11M-XL"], v.database_server_type))
     ])
     error_message = "Invalid database server type, accepted values are X11MV, X11M-BASE, X11M, X11M-L, and X11M-XL."
   }
@@ -181,7 +181,7 @@ variable "cloud_exadata_infrastructures_configuration" {
   validation {
     condition = var.cloud_exadata_infrastructures_configuration == null ? true : alltrue([
       for k, v in var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures :
-      (v.storage_server_type == null || contains(["X11MV-HC", "X11M-BASE", "X11M-HC"], v.storage_server_type))
+      (v.storage_server_type == null ? true : contains(["X11MV-HC", "X11M-BASE", "X11M-HC"], v.storage_server_type))
     ])
     error_message = "Invalid storage server type, accepted values are X11MV-HC, X11M-BASE, and X11M-HC."
   }
@@ -254,6 +254,11 @@ variable "cloud_vm_clusters_configuration" {
     subscription_id = optional(string)
     system_version  = optional(string)
     time_zone       = optional(string)
+    timeouts = optional(object({
+      create = optional(string)
+      update = optional(string)
+      delete = optional(string)
+    }))
     vm_cluster_type = optional(string)
   }))
 }
@@ -329,86 +334,11 @@ variable "cloud_db_homes_configuration" {
       vault_id                              = optional(string)
     })))
   }))
-  validation {
-    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
-      for k, v in var.cloud_db_homes_configuration :
-      [for dk, dv in coalesce(v.database, {}) :
-        try(length(dv.admin_password) > 0, false) != try(length(trimspace(dv.admin_password_secret_id)) > 0, false)
-      ]
-    ]))
-    error_message = "Each legacy inline database must define exactly one of admin_password or admin_password_secret_id."
-  }
 
-  validation {
-    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
-      for k, v in var.cloud_db_homes_configuration : [
-        for dk, dv in coalesce(v.database, {}) : concat([
-          !(try(length(dv.backup_tde_password) > 0, false) && try(length(trimspace(dv.backup_tde_password_secret_id)) > 0, false)),
-          !(try(length(dv.tde_wallet_password) > 0, false) && try(length(trimspace(dv.tde_wallet_password_secret_id)) > 0, false))
-          ], [
-          for detail in values(coalesce(dv.encryption_key_location_details, {})) :
-          !(try(length(detail.hsm_password) > 0, false) && try(length(trimspace(detail.hsm_password_secret_id)) > 0, false))
-        ])
-      ]
-    ]))
-    error_message = "Each optional legacy inline database password must define at most one of its literal value or corresponding secret_id."
-  }
 
-  validation {
-    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
-      for k, v in var.cloud_db_homes_configuration :
-      [for dk, dv in coalesce(v.database, {}) :
-        try(length(dv.db_name) <= 8 && can(regex("^[A-Za-z][A-Za-z0-9]*$", dv.db_name)), false)
-      ]
-    ]))
-    error_message = "The legacy inline database name should start with an alphabetical character and have a maximum of 8 characters. Special characters are not permitted."
-  }
 
-  validation {
-    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
-      for k, v in var.cloud_db_homes_configuration :
-      [for dk, dv in coalesce(v.database, {}) :
-        dv.pdb_name == null ? true : (
-          length(dv.pdb_name) <= 30 &&
-          can(regex("^[A-Za-z][A-Za-z0-9]*$", dv.pdb_name)) &&
-          try(upper(dv.pdb_name) != upper(dv.db_name), false)
-        )
-      ]
-    ]))
-    error_message = "The legacy inline initial PDB name should start with an alphabetical character, have a maximum of 30 alphanumeric characters, contain no special characters, and differ from the database name."
-  }
 
-  validation {
-    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
-      for k, v in var.cloud_db_homes_configuration :
-      [for dk, dv in coalesce(v.database, {}) :
-        try(length(dv.admin_password) > 0, false) ? (
-          (can(regex("^[A-Za-z0-9#_-]{9,30}$", dv.admin_password))) &&
-          (length(regexall("[A-Z]", dv.admin_password)) >= 2) &&
-          (length(regexall("[a-z]", dv.admin_password)) >= 2) &&
-          (length(regexall("[0-9]", dv.admin_password)) >= 2) &&
-          (length(regexall("[#_-]", dv.admin_password)) >= 2)
-        ) : true
-      ]
-    ]))
-    error_message = "The admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
-  }
 
-  validation {
-    condition = var.cloud_db_homes_configuration == null ? true : alltrue(flatten([
-      for k, v in var.cloud_db_homes_configuration :
-      [for dk, dv in coalesce(v.database, {}) :
-        try(length(dv.tde_wallet_password) > 0, false) ? (
-          (can(regex("^[A-Za-z0-9#_-]{9,30}$", dv.tde_wallet_password))) &&
-          (length(regexall("[A-Z]", dv.tde_wallet_password)) >= 2) &&
-          (length(regexall("[a-z]", dv.tde_wallet_password)) >= 2) &&
-          (length(regexall("[0-9]", dv.tde_wallet_password)) >= 2) &&
-          (length(regexall("[#_-]", dv.tde_wallet_password)) >= 2)
-        ) : true
-      ]
-    ]))
-    error_message = "The tde wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
-  }
 
 }
 
@@ -483,142 +413,16 @@ variable "databases_configuration" {
     kms_key_id         = optional(string)
     kms_key_version_id = optional(string)
   }))
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      (length(v.database.db_name) <= 8 && can(regex("^[A-Za-z][A-Za-z0-9]*$", v.database.db_name)))
-    ])
-    error_message = "The database name should start with an alphabetical character and have a maximum of 8 characters. Special characters are not permitted."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      contains(["NONE", "DB_BACKUP", "DATAGUARD"], v.source)
-    ])
-    error_message = "Invalid database source. Accepted values are NONE, DB_BACKUP, and DATAGUARD."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      v.source != "DB_BACKUP" ? true : try(length(trimspace(v.database.backup_id)) > 0, false)
-    ])
-    error_message = "backup_id is required when database source is DB_BACKUP."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      v.database.pdb_name == null ? true : (
-        length(v.database.pdb_name) <= 30 &&
-        can(regex("^[A-Za-z][A-Za-z0-9]*$", v.database.pdb_name)) &&
-        upper(v.database.pdb_name) != upper(v.database.db_name)
-      )
-    ])
-    error_message = "The initial PDB name should start with an alphabetical character, have a maximum of 30 alphanumeric characters, contain no special characters, and differ from the database name."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      try(length(v.database.admin_password) > 0, false) != try(length(trimspace(v.database.admin_password_secret_id)) > 0, false)
-    ])
-    error_message = "Each database must define exactly one of admin_password or admin_password_secret_id."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue(flatten([
-      for k, v in var.databases_configuration : [
-        !(try(length(v.database.backup_tde_password) > 0, false) && try(length(trimspace(v.database.backup_tde_password_secret_id)) > 0, false)),
-        !(try(length(v.database.database_admin_password) > 0, false) && try(length(trimspace(v.database.database_admin_password_secret_id)) > 0, false)),
-        !(try(length(v.database.db_backup_config.backup_destination_details.vpc_password) > 0, false) && try(length(trimspace(v.database.db_backup_config.backup_destination_details.vpc_password_secret_id)) > 0, false)),
-        !(try(length(v.database.encryption_key_location_details.hsm_password) > 0, false) && try(length(trimspace(v.database.encryption_key_location_details.hsm_password_secret_id)) > 0, false)),
-        !(try(length(v.database.source_tde_wallet_password) > 0, false) && try(length(trimspace(v.database.source_tde_wallet_password_secret_id)) > 0, false)),
-        !(try(length(v.database.source_encryption_key_location_details["hsm_password"]) > 0, false) && try(length(trimspace(v.database.source_encryption_key_location_details["hsm_password_secret_id"])) > 0, false)),
-        !(try(length(v.database.tde_wallet_password) > 0, false) && try(length(trimspace(v.database.tde_wallet_password_secret_id)) > 0, false))
-      ]
-    ]))
-    error_message = "Each optional database password must define at most one of its literal value or corresponding secret_id."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      v.source != "DATAGUARD" ? true : (
-        (try(length(v.database.database_admin_password) > 0, false) != try(length(trimspace(v.database.database_admin_password_secret_id)) > 0, false)) &&
-        try(length(trimspace(v.database.protection_mode)) > 0, false) &&
-        try(length(trimspace(v.database.source_database_id)) > 0, false) &&
-        (try(length(v.database.source_tde_wallet_password) > 0, false) != try(length(trimspace(v.database.source_tde_wallet_password_secret_id)) > 0, false)) &&
-        try(length(trimspace(v.database.transport_type)) > 0, false)
-      )
-    ])
-    error_message = "A database_admin_password value or secret reference, protection_mode, source_database_id, a source_tde_wallet_password value or secret reference, and transport_type are required when database source is DATAGUARD."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      v.source != "DATAGUARD" ? true : try(contains(["MAXIMUM_AVAILABILITY", "MAXIMUM_PERFORMANCE", "MAXIMUM_PROTECTION"], v.database.protection_mode), false)
-    ])
-    error_message = "Invalid Data Guard protection_mode. Accepted values are MAXIMUM_AVAILABILITY, MAXIMUM_PERFORMANCE, and MAXIMUM_PROTECTION."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      v.source != "DATAGUARD" ? true : try(v.database.transport_type == "ASYNC", false)
-    ])
-    error_message = "Invalid Data Guard transport_type. OCI Database currently supports ASYNC for this module contract."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      v.database.source_encryption_key_location_details == null ? true : (
-        contains(keys(v.database.source_encryption_key_location_details), "provider_type") &&
-        alltrue([
-          for detail_key in keys(v.database.source_encryption_key_location_details) :
-          contains(["provider_type", "hsm_password", "hsm_password_secret_id"], detail_key)
-        ])
-      )
-    ])
-    error_message = "source_encryption_key_location_details supports only provider_type, hsm_password, and hsm_password_secret_id. provider_type is required."
-  }
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      try(v.database.db_backup_config.backup_destination_details.type, null) == null ? true : contains(["AWS_S3", "DBRS", "OBJECT_STORE", "NFS", "RECOVERY_APPLIANCE", "LOCAL"], v.database.db_backup_config.backup_destination_details.type)
-    ])
-    error_message = "Invalid backup destination type. Accepted values are AWS_S3, DBRS, OBJECT_STORE, NFS, RECOVERY_APPLIANCE, and LOCAL."
-  }
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      try(length(v.database.admin_password) > 0, false) ? (
-        (can(regex("^[A-Za-z0-9#_-]{9,30}$", v.database.admin_password))) &&
-        (length(regexall("[A-Z]", v.database.admin_password)) >= 2) &&
-        (length(regexall("[a-z]", v.database.admin_password)) >= 2) &&
-        (length(regexall("[0-9]", v.database.admin_password)) >= 2) &&
-        (length(regexall("[#_-]", v.database.admin_password)) >= 2)
-      ) : true
-    ])
-    error_message = "The admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
-  }
 
-  validation {
-    condition = var.databases_configuration == null ? true : alltrue([
-      for k, v in var.databases_configuration :
-      try(length(v.database.tde_wallet_password) > 0, false) ? (
-        (can(regex("^[A-Za-z0-9#_-]{9,30}$", v.database.tde_wallet_password))) &&
-        (length(regexall("[A-Z]", v.database.tde_wallet_password)) >= 2) &&
-        (length(regexall("[a-z]", v.database.tde_wallet_password)) >= 2) &&
-        (length(regexall("[0-9]", v.database.tde_wallet_password)) >= 2) &&
-        (length(regexall("[#_-]", v.database.tde_wallet_password)) >= 2)
-      ) : true
-    ])
-    error_message = "The tde wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
-  }
 }
 
 variable "pluggable_databases_configuration" {
@@ -653,52 +457,7 @@ variable "pluggable_databases_configuration" {
     tde_wallet_password                = optional(string)
     tde_wallet_password_secret_id      = optional(string)
   }))
-  validation {
-    condition = var.pluggable_databases_configuration == null ? true : alltrue(flatten([
-      for k, v in var.pluggable_databases_configuration : [
-        !(try(length(v.container_database_admin_password) > 0, false) && try(length(trimspace(v.container_database_admin_password_secret_id)) > 0, false)),
-        !(try(length(v.pdb_admin_password) > 0, false) && try(length(trimspace(v.pdb_admin_password_secret_id)) > 0, false)),
-        !(try(length(v.pdb_creation_type_details.dblink_user_password) > 0, false) && try(length(trimspace(v.pdb_creation_type_details.dblink_user_password_secret_id)) > 0, false)),
-        !(try(length(v.pdb_creation_type_details.source_container_database_admin_password) > 0, false) && try(length(trimspace(v.pdb_creation_type_details.source_container_database_admin_password_secret_id)) > 0, false)),
-        !(try(length(v.tde_wallet_password) > 0, false) && try(length(trimspace(v.tde_wallet_password_secret_id)) > 0, false))
-      ]
-    ]))
-    error_message = "Each optional pluggable database password must define at most one of its literal value or corresponding secret_id."
-  }
 
-  validation {
-    condition = var.pluggable_databases_configuration == null ? true : alltrue([
-      for k, v in var.pluggable_databases_configuration :
-      (length(v.pdb_name) <= 30 && can(regex("^[A-Za-z][A-Za-z0-9]*$", v.pdb_name)))
-    ])
-    error_message = "The PDB name should start with an alphabetical character and have a maximum of 30 alphanumeric characters. Special characters are not permitted."
-  }
 
-  validation {
-    condition = var.pluggable_databases_configuration == null ? true : alltrue([
-      for k, v in var.pluggable_databases_configuration :
-      try(length(v.pdb_admin_password) > 0, false) ? (
-        (can(regex("^[A-Za-z0-9#_-]{9,30}$", v.pdb_admin_password))) &&
-        (length(regexall("[A-Z]", v.pdb_admin_password)) >= 2) &&
-        (length(regexall("[a-z]", v.pdb_admin_password)) >= 2) &&
-        (length(regexall("[0-9]", v.pdb_admin_password)) >= 2) &&
-        (length(regexall("[#_-]", v.pdb_admin_password)) >= 2)
-      ) : true
-    ])
-    error_message = "The pdb admin password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
-  }
 
-  validation {
-    condition = var.pluggable_databases_configuration == null ? true : alltrue([
-      for k, v in var.pluggable_databases_configuration :
-      try(length(v.tde_wallet_password) > 0, false) ? (
-        (can(regex("^[A-Za-z0-9#_-]{9,30}$", v.tde_wallet_password))) &&
-        (length(regexall("[A-Z]", v.tde_wallet_password)) >= 2) &&
-        (length(regexall("[a-z]", v.tde_wallet_password)) >= 2) &&
-        (length(regexall("[0-9]", v.tde_wallet_password)) >= 2) &&
-        (length(regexall("[#_-]", v.tde_wallet_password)) >= 2)
-      ) : true
-    ])
-    error_message = "The tde wallet password needs to contain 2 uppercase, 2 lowercase, 2 numbers, 2 special characters (#, _, -), and length of 9 to 30 characters."
-  }
 }

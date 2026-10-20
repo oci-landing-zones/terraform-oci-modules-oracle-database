@@ -2,14 +2,6 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
 locals {
-  cloud_exadata_infrastructures_input      = try(var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures, {})
-  cloud_exadata_infrastructures_dependency = coalesce(try(var.exadata_database_dependency.cloud_exadata_infrastructures, null), {})
-  compartments_dependency_input            = var.compartments_dependency != null ? var.compartments_dependency : {}
-  default_compartment_id_resolves = var.default_compartment_id != null ? (
-    can(regex("^ocid1\\.(compartment|tenancy)\\.", var.default_compartment_id)) ||
-    contains(keys(local.compartments_dependency_input), var.default_compartment_id)
-  ) : false
-
   cloud_vm_clusters = { for vm_key, vm in coalesce(var.cloud_vm_clusters_configuration, {}) : vm_key => merge(vm, {
     subscription_id_input = vm.subscription_id
     exadata_infra_id      = can(regex("^ocid1\\.cloudexadatainfrastructure.", vm.exadata_infrastructure_id)) ? vm.exadata_infrastructure_id : try(oci_database_cloud_exadata_infrastructure.these[vm.exadata_infrastructure_id].id, var.exadata_database_dependency.cloud_exadata_infrastructures[vm.exadata_infrastructure_id].id, null)
@@ -28,21 +20,7 @@ locals {
   cloud_vm_clusters_with_db_server_lookup = {
     for vm_key, vm in coalesce(var.cloud_vm_clusters_configuration, {}) :
     vm_key => local.cloud_vm_clusters[vm_key]
-    if contains(coalesce(vm.db_servers, []), "ALL") && (
-      can(regex("^ocid1\\.cloudexadatainfrastructure.", vm.exadata_infrastructure_id)) ||
-      contains(keys(local.cloud_exadata_infrastructures_input), vm.exadata_infrastructure_id) ||
-      contains(keys(local.cloud_exadata_infrastructures_dependency), vm.exadata_infrastructure_id)
-      ) && (vm.compartment_id != null ? (
-        can(regex("^ocid1\\.(compartment|tenancy)\\.", vm.compartment_id)) ||
-        contains(keys(local.compartments_dependency_input), vm.compartment_id)
-        ) : (try(local.cloud_exadata_infrastructures_input[vm.exadata_infrastructure_id].compartment_id, null) != null ? (
-          can(regex("^ocid1\\.(compartment|tenancy)\\.", local.cloud_exadata_infrastructures_input[vm.exadata_infrastructure_id].compartment_id)) ||
-          contains(keys(local.compartments_dependency_input), local.cloud_exadata_infrastructures_input[vm.exadata_infrastructure_id].compartment_id)
-          ) : (
-          try(local.cloud_exadata_infrastructures_dependency[vm.exadata_infrastructure_id].compartment_id, null) != null ? can(regex("^ocid1\\.(compartment|tenancy)\\.", local.cloud_exadata_infrastructures_dependency[vm.exadata_infrastructure_id].compartment_id)) : local.default_compartment_id_resolves
-        )
-      )
-    )
+    if contains(coalesce(vm.db_servers, []), "ALL")
   }
 }
 
@@ -50,6 +28,17 @@ data "oci_database_db_servers" "these" {
   for_each                  = local.cloud_vm_clusters_with_db_server_lookup
   compartment_id            = each.value.compartment_id
   exadata_infrastructure_id = each.value.exadata_infra_id
+
+  lifecycle {
+    precondition {
+      condition     = each.value.exadata_infra_id != null && can(regex("^ocid1\\.cloudexadatainfrastructure\\.", each.value.exadata_infra_id))
+      error_message = "exadata_infrastructure_id must be a Cloud Exadata infrastructure OCID or a key in exadata_database_dependency.cloud_exadata_infrastructures."
+    }
+    precondition {
+      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.(compartment|tenancy)\\.", each.value.compartment_id))
+      error_message = "compartment_id must be a compartment OCID, the tenancy OCID for the root compartment, or a key in compartments_dependency."
+    }
+  }
 }
 
 resource "oci_database_cloud_vm_cluster" "these" {
@@ -130,6 +119,12 @@ resource "oci_database_cloud_vm_cluster" "these" {
       file_system_size_gb = file_system_configuration_details.value.file_system_size_gb
       mount_point         = file_system_configuration_details.value.mount_point
     }
+  }
+
+  timeouts {
+    create = try(each.value.timeouts.create, null)
+    update = try(each.value.timeouts.update, null)
+    delete = try(each.value.timeouts.delete, null)
   }
 
   lifecycle {

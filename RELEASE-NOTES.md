@@ -1,3 +1,26 @@
+# Unreleased Release Notes - 1.2.1
+
+## Updates
+1. Fixed unnecessary replacement of imported standalone CDBs by retaining their creation-time `source` value. ([#19](https://github.com/oci-landing-zones/terraform-oci-modules-oracle-database/issues/19))
+2. Fixed unnecessary PDB replacement caused by changes to the creation-time `should_create_pdb_backup` and `should_pdb_admin_account_be_locked` flags. Changes to `container_database_id` remain managed. ([#20](https://github.com/oci-landing-zones/terraform-oci-modules-oracle-database/issues/20))
+3. Accepted an empty `cloud_exadata_infrastructures_configuration` object when using existing Exadata infrastructure. ([#17](https://github.com/oci-landing-zones/terraform-oci-modules-oracle-database/issues/17))
+4. Fixed sensitive password inputs in Common Database and Exadata Database so they do not make resource instance keys sensitive.
+5. Removed duplicate Exadata wrapper validations while retaining the checks in Common Database.
+6. Fixed validation of omitted Exadata database and storage server types with Terraform 1.5.7.
+7. Fixed Exadata Availability Domain and DB server lookups when compartment or infrastructure OCIDs are unknown until apply.
+8. Fixed ADB Shared / Serverless TDE Vault and existing-key lookups when dependency OCIDs are unknown until apply.
+9. Added optional per-VM-Cluster `create`, `update`, and `delete` timeouts. Omitted values retain the OCI provider defaults. ([#15](https://github.com/oci-landing-zones/terraform-oci-modules-oracle-database/issues/15))
+
+## Upgrade from 1.2.0
+
+Existing configurations do not require input rewrites, imports, or state migration. The deprecated inline CDB path remains unchanged. Review the first upgrade plan before applying.
+
+Resources with a module-managed `ocilz-terraform-module` freeform tag can show an in-place tag update from `1.2.0` to `1.2.1`. Caller-supplied values for this tag remain unchanged.
+
+## Known Limitations
+
+Creating a new ADB TDE encryption key requires a Vault OCID that is known during planning. The upstream Vaults module v0.2.3 cannot plan this operation with an unknown Vault OCID. See [Vaults issue #22](https://github.com/oci-landing-zones/terraform-oci-modules-security/issues/22).
+
 # September 4, 2026 Release Notes - 1.2.0
 
 ## Updates
