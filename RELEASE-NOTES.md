@@ -10,6 +10,7 @@
 7. Fixed Exadata Availability Domain and DB server lookups when compartment or infrastructure OCIDs are unknown until apply.
 8. Fixed ADB Shared / Serverless TDE Vault and existing-key lookups when dependency OCIDs are unknown until apply.
 9. Added optional per-VM-Cluster `create`, `update`, and `delete` timeouts. Omitted values retain the OCI provider defaults. ([#15](https://github.com/oci-landing-zones/terraform-oci-modules-oracle-database/issues/15))
+10. Added optional per-VM-Cluster `ignore_cpu_changes` for CPU scaling outside Terraform, including Oracle Dynamic Scaling (ODyS). Omitted or `false` retains existing CPU management and resource addresses. Enabling it on an existing cluster requires an explicit `moved` block; see [Cloud VM Clusters](./exadata-database/README.md#cloud-vm-clusters).
 
 ## Upgrade from 1.2.0
 

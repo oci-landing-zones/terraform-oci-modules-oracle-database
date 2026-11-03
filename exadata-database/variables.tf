@@ -234,6 +234,7 @@ variable "cloud_vm_clusters_configuration" {
       file_system_size_gb = optional(number)
       mount_point         = optional(string)
     })))
+    ignore_cpu_changes          = optional(bool, false)
     is_local_backup_enabled     = optional(bool, false)
     is_sparse_diskgroup_enabled = optional(bool, false)
     license_model               = optional(string)

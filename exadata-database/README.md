@@ -181,6 +181,7 @@ backup_network_nsg_ids: Backup network NSG IDs of the VM cluster.
 - freeform_tags: Freeform tags for the VM cluster.
 - domain: Domain of the VM cluster.
 - file_system_configuration_details: File system configuration details for the VM cluster.
+- ignore_cpu_changes: Optional boolean, default `false`. Set to `true` when CPU scaling is managed outside Terraform, for example by Oracle Dynamic Scaling (ODyS). The value must be known at plan time. See the activation instructions below.
 - is_local_backup_enabled: Whether local backup is enabled for the VM cluster.
 - is_sparse_diskgroup_enabled: Whether sparse diskgroup is enabled for the VM cluster.
 - license_model: License model of the VM cluster.
@@ -203,8 +204,44 @@ For compatibility, the module does not manage later changes to:
 - gi_version
 - system_version
 - any `defined_tags` on a VM Cluster
+- `cpu_core_count` and `ocpu_count`, only when `ignore_cpu_changes = true`
 
 Freeform tags remain managed by Terraform. This VM Cluster tag behavior is retained from 1.1.0.
+
+With `ignore_cpu_changes` omitted, `null`, or `false`, upgrading this module retains the existing `oci_database_cloud_vm_cluster.these` resource addresses and CPU management. When `true`, both CPU inputs still supply creation values, but subsequent CPU changes are ignored, including edits to these inputs in Terraform configuration. Other attributes retain their existing management rules. Outputs keep the same logical cluster keys and publish the observed CPU values after refresh. This option does not install or configure ODyS.
+
+Clusters with `ignore_cpu_changes = true` use `oci_database_cloud_vm_cluster.these_ignore_cpu_changes`. New clusters need no migration. For an existing cluster, set the flag and add a per-cluster `moved` block in the root configuration in the same change. Otherwise Terraform plans to destroy the old resource and create a new one, potentially replacing dependent DB Homes and databases.
+
+For a direct module call named `exadata_database`:
+
+```hcl
+moved {
+  from = module.exadata_database.oci_database_cloud_vm_cluster.these["VMC-KEY"]
+  to   = module.exadata_database.oci_database_cloud_vm_cluster.these_ignore_cpu_changes["VMC-KEY"]
+}
+```
+
+For the Orchestrator root:
+
+```hcl
+moved {
+  from = module.oci_lz_cloud_exadata_database[0].oci_database_cloud_vm_cluster.these["VMC-KEY"]
+  to   = module.oci_lz_cloud_exadata_database[0].oci_database_cloud_vm_cluster.these_ignore_cpu_changes["VMC-KEY"]
+}
+```
+
+For an RMS Facade root:
+
+```hcl
+moved {
+  from = module.oci_lz_orchestrator.module.oci_lz_cloud_exadata_database[0].oci_database_cloud_vm_cluster.these["VMC-KEY"]
+  to   = module.oci_lz_orchestrator.module.oci_lz_cloud_exadata_database[0].oci_database_cloud_vm_cluster.these_ignore_cpu_changes["VMC-KEY"]
+}
+```
+
+Replace the module path and key with the deployed resource address, and ensure the caller uses a module version containing this option. The flag belongs in each VM Cluster's configuration; `moved` blocks belong in root Terraform configuration, not in JSON/YAML workload inputs. Use one block for each existing cluster being switched. Retain the block while any deployment using that root still needs the migration.
+
+Before applying, verify that the plan reports the expected address move, preserves resource IDs, and proposes no destruction or replacement of the cluster, DB Homes, CDBs, or PDBs. Review other changes separately. To return CPU management to Terraform, set the flag to `false`, deliberately set the desired CPU values, and replace the forward movement with its inverse. Do not leave both directions in the configuration: they form a cycle. Terraform can then propose changing CPU to those configured values.
 
 For more details on this resource, please see OCI Terraform Documentation for [oci_database_cloud_vm_cluster](https://registry.terraform.io/providers/oracle/oci/latest/docs/resources/database_cloud_vm_cluster)
 
