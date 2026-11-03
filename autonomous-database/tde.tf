@@ -2,14 +2,28 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
 data "oci_kms_vault" "these" {
-  for_each = { for k, v in var.autonomous_databases_configuration.databases : k => local.tde_vault_ids[k] if try(v.is_dedicated, true) == false && local.tde_vault_ids[k] != null && (try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == true || try(v.security.tde.deploy_new_oci_encryption_key, false) == true) }
+  for_each = { for k, v in var.autonomous_databases_configuration.databases : k => local.tde_vault_ids[k] if try(v.is_dedicated, true) == false && (try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == true || try(v.security.tde.deploy_new_oci_encryption_key, false) == true) }
   vault_id = each.value
+
+  lifecycle {
+    precondition {
+      condition     = each.value != null && can(regex("^ocid1\\.vault\\.", each.value))
+      error_message = "ADB Shared/Serverless TDE vault keys must resolve through vaults_dependency. A temporary 1.1.0 compatibility fallback accepts a vault OCID stored in kms_dependency, but this fallback is deprecated."
+    }
+  }
 }
 
 data "oci_kms_key" "these" {
-  for_each            = { for k, v in var.autonomous_databases_configuration.databases : k => try(v.security.tde.existing_oci_encryption_key_id, null) if try(v.is_dedicated, true) == false && try(v.security.tde.existing_oci_encryption_key_id, null) != null && try(v.security.tde.deploy_new_oci_encryption_key, false) == false && try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == true && local.tde_vault_ids[k] != null && (try(length(regexall("^ocid1.*$", v.security.tde.existing_oci_encryption_key_id)) > 0, false) || try(contains(keys(var.kms_dependency), v.security.tde.existing_oci_encryption_key_id), false)) }
-  key_id              = length(regexall("^ocid1.*$", each.value)) > 0 ? each.value : var.kms_dependency[each.value].id
+  for_each            = { for k, v in var.autonomous_databases_configuration.databases : k => local.db_configs[k].oci_encryption_key_id if try(v.is_dedicated, true) == false && try(v.security.tde.deploy_new_oci_encryption_key, false) == false && try(v.security.tde.deploy_iam_policy_and_dyn_group_for_encryption_key, false) == true }
+  key_id              = each.value
   management_endpoint = data.oci_kms_vault.these[each.key].management_endpoint
+
+  lifecycle {
+    precondition {
+      condition     = each.value != null && can(regex("^ocid1\\.key\\.", each.value))
+      error_message = "ADB Shared/Serverless TDE encryption key IDs must resolve through kms_dependency. Use a literal key OCID or a valid kms_dependency key."
+    }
+  }
 }
 
 locals {

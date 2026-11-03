@@ -146,8 +146,8 @@ Prefer **admin_password_secret_id** to avoid committing a literal password to Gi
     - **tde**: (Optional) Transparent Data Encryption settings. 
       - **deploy_iam_policy_and_dyn_group_for_encryption_key**: (Optional) Whether to deploy an IAM policy and dynamic group for allowing the database to read an encryption key for transparent data encryption. Default value is *true*.
       - **existing_oci_vault_id**(Optional): The OCI vault holding the encryption key. Required if defining tde. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *vaults_dependency* variable. For 1.1.0 upgrade compatibility only, vault OCIDs stored in *kms_dependency* are accepted as a deprecated fallback when no *vaults_dependency* match exists.
-      - **deploy_new_oci_encryption_key**: (Optional) Whether to deploy a new encyption key in the existing vault. Default value is *true*.
-      - **existing_oci_encryption_key_id**: (Optional) The existing encryption key id. Required when *deploy_new_oci_encryption_key* is *false* and *deploy_iam_policy_and_dyn_group_for_encryption_key* is *true*.
+      - **deploy_new_oci_encryption_key**: (Optional) Whether to deploy a new encyption key in the existing vault. Default value is *true*. The Vault OCID must be known during planning because the Vaults module v0.2.3 does not support an unknown Vault OCID when creating a key.
+      - **existing_oci_encryption_key_id**: (Optional) The existing encryption key id. Required when *deploy_new_oci_encryption_key* is *false* and *deploy_iam_policy_and_dyn_group_for_encryption_key* is *true*. When using an existing key, Vault and key OCIDs can remain unknown until apply.
     - **zpr_attributes**: (Optional) List of objects representing ZPR attributes. Only applicable when *enable_private_endpoint* is true.
         - **namespace**: (Optional) ZPR namespace. Default is *oracle-zpr*, a default namespace created by Oracle and available in all tenancies.
         - **attr_name**: (Optional) ZPR attribute name. It must exist in the specified namespace.

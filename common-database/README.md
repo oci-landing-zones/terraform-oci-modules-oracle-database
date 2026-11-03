@@ -96,6 +96,8 @@ The module does not manage later DB Home software version or image changes. OCI 
 
 Each `databases_configuration` entry creates a standalone CDB. Its `db_home_id` accepts a Database Home key created in this module, a key from `database_dependency.database_homes`, or a DB Home OCID. The `source` attribute supports `NONE`, `DB_BACKUP`, and `DATAGUARD`; the module validates source-specific required inputs before creation.
 
+`source` selects the creation operation and is ignored after creation. OCI does not return it when reading an existing CDB, so an imported CDB does not need to be replaced to populate this value. Keep a valid `source` and its required inputs in the configuration; changing `source` on an existing CDB does not restore it or create a Data Guard standby.
+
 `database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. In particular, `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later. The module does not manage later CDB DB Home changes, which allows an out-of-place DB Home patch to remain in place. The OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; customer-defined and freeform tags remain managed.
 
 OCI tag defaults can add tenancy-specific defined tags when a CDB is created. Declare those tags in `default_defined_tags` or `database.defined_tags` when Terraform should manage them. Direct callers can instead list selected fully qualified keys in the OCI provider's `ignore_defined_tags` setting when Terraform should intentionally ignore them. Do not ignore the complete `database.defined_tags` map, because that would also hide customer-managed tag changes.
@@ -106,6 +108,8 @@ Each `pluggable_databases_configuration` entry creates a PDB. Its `container_dat
 
 `container_database_admin_password`, `pdb_admin_password`, and `tde_wallet_password` are sensitive creation-time values. OCI provenance tags are ignored, while customer-defined and freeform tags remain managed.
 
+`should_create_pdb_backup` and `should_pdb_admin_account_be_locked` apply when creating a PDB and are ignored after creation, including for imported PDBs. Changing them on an existing PDB does not take a backup or change the admin account lock status.
+
 ### <a name="password-secrets">Password Secrets</a>
 
 Every password consumed by the managed DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. The module reads the `CURRENT` secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting password as sensitive before passing it to the OCI provider.
@@ -115,6 +119,8 @@ The supported pairs cover legacy inline CDB administration, backup TDE, encrypti
 The deprecated legacy inline `source_encryption_key_location_details` block remains accepted only for 1.1.0 input compatibility and is not consumed by the DB Home provider path; its fields therefore remain unmanaged.
 
 For every legacy inline CDB and standalone CDB, define exactly one of `admin_password` or `admin_password_secret_id`. When a standalone CDB uses `source = "DATAGUARD"`, also define exactly one of `database_admin_password` or `database_admin_password_secret_id`, and exactly one of `source_tde_wallet_password` or `source_tde_wallet_password_secret_id`. For all other password pairs, define at most one. An empty literal is treated as absent. Password-policy validation applies equally to literal and Vault-backed administration and TDE wallet passwords.
+
+Password attributes can receive values from variables declared with `sensitive = true` or from `sensitive(...)` expressions. Keep the configuration map and its resource keys non-sensitive; mark the password values as sensitive rather than the entire configuration.
 
 Prefer the `*_secret_id` attributes to avoid committing literal passwords to Git and to centralize rotation and audit activity in OCI Vault. Regardless of the source, Terraform retrieves the password and stores it in the Terraform state file. Treat the state as sensitive data and protect it with an encrypted backend and appropriately restricted access.
 

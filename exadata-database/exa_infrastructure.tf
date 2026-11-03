@@ -26,8 +26,15 @@ locals {
 }
 
 data "oci_identity_availability_domains" "ads" {
-  for_each       = { for k, v in local.cloud_exadata_infrastructures : k => v if v.compartment_id != null }
+  for_each       = local.cloud_exadata_infrastructures
   compartment_id = each.value.compartment_id
+
+  lifecycle {
+    precondition {
+      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.(compartment|tenancy)\\.", each.value.compartment_id))
+      error_message = "compartment_id must be a compartment OCID, the tenancy OCID for the root compartment, or a key in compartments_dependency."
+    }
+  }
 }
 
 

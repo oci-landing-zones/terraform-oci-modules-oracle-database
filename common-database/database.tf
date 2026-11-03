@@ -5,29 +5,30 @@
 # - Uses a DB Home created by this Terraform stack (by key) or an explicitly provided DB Home OCID.
 
 locals {
+  # Default nullable maps without propagating password sensitivity to resource keys.
   cdb_admin_password_secret_id_inputs = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => try(trimspace(db.database.admin_password_secret_id), "")
+    for key, db in merge({}, var.databases_configuration) : key => try(trimspace(db.database.admin_password_secret_id), "")
   }
   cdb_backup_tde_password_secret_id_inputs = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => try(trimspace(db.database.backup_tde_password_secret_id), "")
+    for key, db in merge({}, var.databases_configuration) : key => try(trimspace(db.database.backup_tde_password_secret_id), "")
   }
   cdb_dataguard_admin_password_secret_id_inputs = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => try(trimspace(db.database.database_admin_password_secret_id), "")
+    for key, db in merge({}, var.databases_configuration) : key => try(trimspace(db.database.database_admin_password_secret_id), "")
   }
   cdb_backup_destination_vpc_password_secret_id_inputs = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => try(trimspace(db.database.db_backup_config.backup_destination_details.vpc_password_secret_id), "")
+    for key, db in merge({}, var.databases_configuration) : key => try(trimspace(db.database.db_backup_config.backup_destination_details.vpc_password_secret_id), "")
   }
   cdb_encryption_hsm_password_secret_id_inputs = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => try(trimspace(db.database.encryption_key_location_details.hsm_password_secret_id), "")
+    for key, db in merge({}, var.databases_configuration) : key => try(trimspace(db.database.encryption_key_location_details.hsm_password_secret_id), "")
   }
   cdb_source_tde_wallet_password_secret_id_inputs = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => try(trimspace(db.database.source_tde_wallet_password_secret_id), "")
+    for key, db in merge({}, var.databases_configuration) : key => try(trimspace(db.database.source_tde_wallet_password_secret_id), "")
   }
   cdb_source_encryption_hsm_password_secret_id_inputs = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => try(trimspace(db.database.source_encryption_key_location_details["hsm_password_secret_id"]), "")
+    for key, db in merge({}, var.databases_configuration) : key => try(trimspace(db.database.source_encryption_key_location_details["hsm_password_secret_id"]), "")
   }
   cdb_tde_wallet_password_secret_id_inputs = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => try(trimspace(db.database.tde_wallet_password_secret_id), "")
+    for key, db in merge({}, var.databases_configuration) : key => try(trimspace(db.database.tde_wallet_password_secret_id), "")
   }
 
   cdb_admin_password_secret_ids = {
@@ -56,15 +57,15 @@ locals {
   }
 
   cdb_admin_passwords = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => sensitive(try(length(db.database.admin_password) > 0, false) ? db.database.admin_password : try(base64decode(data.oci_secrets_secretbundle.cdb_admin_password[key].secret_bundle_content[0].content), null))
+    for key, db in merge({}, var.databases_configuration) : key => sensitive(try(length(db.database.admin_password) > 0, false) ? db.database.admin_password : try(base64decode(data.oci_secrets_secretbundle.cdb_admin_password[key].secret_bundle_content[0].content), null))
   }
   cdb_tde_wallet_passwords = {
-    for key, db in coalesce(var.databases_configuration, {}) : key => sensitive(try(length(db.database.tde_wallet_password) > 0, false) ? db.database.tde_wallet_password : try(base64decode(data.oci_secrets_secretbundle.cdb_tde_wallet_password[key].secret_bundle_content[0].content), null))
+    for key, db in merge({}, var.databases_configuration) : key => sensitive(try(length(db.database.tde_wallet_password) > 0, false) ? db.database.tde_wallet_password : try(base64decode(data.oci_secrets_secretbundle.cdb_tde_wallet_password[key].secret_bundle_content[0].content), null))
   }
 
   legacy_cloud_db_home_database_entries = flatten([
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : [
-      for database_key, _database in coalesce(dbhome.database, {}) : {
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : [
+      for database_key, _database in merge({}, dbhome.database) : {
         dbhome_key   = dbhome_key
         database_key = database_key
       }
@@ -81,7 +82,7 @@ locals {
     local.legacy_cloud_db_home_database_key_counts[entry.database_key] == 1 ? entry.database_key : "${entry.dbhome_key}.${entry.database_key}" => entry
   }
 
-  explicit_databases_configuration      = coalesce(var.databases_configuration, {})
+  explicit_databases_configuration      = merge({}, var.databases_configuration)
   database_configuration_key_collisions = setintersection(toset(keys(local.legacy_cloud_db_home_database_configs)), toset(keys(local.explicit_databases_configuration)))
 
   database_key_store_ids = {
@@ -268,7 +269,7 @@ data "oci_secrets_secretbundle" "cdb_tde_wallet_password" {
 resource "oci_database_database" "these" {
   # Match the ARS pattern: establish resource identity from the original
   # configuration and resolve sensitive passwords in resource attributes.
-  for_each = coalesce(var.databases_configuration, {})
+  for_each = merge({}, var.databases_configuration)
 
   #Required
   source     = local.databases[each.key].source
@@ -445,7 +446,8 @@ resource "oci_database_database" "these" {
       database.0.source_tde_wallet_password,
       database.0.tde_wallet_password,
       database.0.defined_tags["Oracle-Tags.CreatedBy"],
-      database.0.defined_tags["Oracle-Tags.CreatedOn"]
+      database.0.defined_tags["Oracle-Tags.CreatedOn"],
+      source
     ]
   }
 }
