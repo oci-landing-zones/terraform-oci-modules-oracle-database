@@ -2,7 +2,7 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
 data "oci_recovery_protection_policies" "oracle_managed" {
-  for_each       = var.recovery_service_dependency == null ? local.oracle_recovery_policy_keys : toset([])
+  for_each       = local.oracle_recovery_policy_keys
   compartment_id = var.tenancy_ocid
   display_name   = title(each.key)
 }

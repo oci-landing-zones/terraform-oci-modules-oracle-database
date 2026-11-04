@@ -13,6 +13,7 @@ db_systems_configuration = {
   db_systems = {
     example = {
       display_name    = "base-database-example"
+      hostname        = "base-db-example"
       ssh_public_keys = ["<ssh-public-key>"]
       shape           = "VM.Standard.E5.Flex"
       cpu_core_count  = 1

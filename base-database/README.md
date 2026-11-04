@@ -75,7 +75,7 @@ For remote use, refer to this module directory in the repository:
 
 ```hcl
 module "base_database" {
-  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//base-database?ref=v1.4.0"
+  source = "github.com/oci-landing-zones/terraform-oci-modules-oracle-database//base-database?ref=<VERSION>"
 
   db_systems_configuration = var.db_systems_configuration
   tenancy_ocid             = var.tenancy_ocid
@@ -163,7 +163,7 @@ Each additional PDB must define exactly one of **pdb_admin_password** or **pdb_a
 
 Backup configuration is defined within **db_backup_config**. Supported attributes include **auto_backup_enabled**, backup windows, full-backup scheduling, **backup_deletion_policy**, **recovery_window_in_days**, **run_immediate_full_backup**, and **backup_destination_details**.
 
-Supported backup destination types are `AWS_S3`, `DBRS`, `LOCAL`, `NFS`, `OBJECT_STORE`, and `RECOVERY_APPLIANCE`. A `DBRS` destination requires **dbrs_policy_id**. The policy can be a direct OCID, a key in **recovery_service_dependency**, or an Oracle-managed policy key such as `bronze`, `silver`, `gold`, or `platinum` when tenancy lookup is enabled.
+Backup destinations currently validated by this module are `OBJECT_STORE` and `DBRS`. A `DBRS` destination requires **dbrs_policy_id**, which can be a direct OCID, a key in **recovery_service_dependency**, or an Oracle-managed policy name such as `bronze`, `silver`, `gold`, or `platinum`. Oracle-managed policy names are looked up in the tenancy only when referenced by a DBRS backup configuration.
 
 ### <a name="ext-dep">External Dependencies</a>
 
