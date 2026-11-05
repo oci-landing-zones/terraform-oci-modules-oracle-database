@@ -1,3 +1,19 @@
+# November 5, 2026 Release Notes - 1.3.0
+
+## Updates
+1. Added the `base-database` module for single-node Base Database Service DB Systems, with an inline Database Home, database, and initial PDB, plus additional PDBs managed as separate resources.
+2. Added direct OCID and logical-key dependency support for compartments, subnets, network security groups, KMS keys, Vault secrets, and Recovery Service protection policies in the Base Database module.
+3. Added direct passwords and OCI Vault secret references for database and additional PDB administrator passwords.
+4. Added Object Storage and Recovery Service backup destination configuration.
+5. Added curated DB System and additional PDB outputs, including DB System dependency outputs for downstream modules.
+6. Added Base Database input validation, lifecycle handling, module specification, documentation, and a deployment example.
+
+## Upgrade from 1.2.0
+
+1. This release adds the Base Database module without changing the existing Exadata Database, Common Database, Autonomous Database, or Autonomous Recovery Service modules. For a version-only upgrade, retain the existing configuration and review the first Terraform plan before applying.
+2. To use the new module, set the module source to `github.com/oci-landing-zones/terraform-oci-modules-oracle-database//base-database?ref=v1.3.0`. Base Database requires Terraform >= 1.3.0 and OCI provider >= 8.25.0.
+3. Base Database administrator passwords resolved from Vault secrets are stored in Terraform state. Protect the state with an encrypted backend and restricted access.
+
 # September 4, 2026 Release Notes - 1.2.0
 
 ## Updates
