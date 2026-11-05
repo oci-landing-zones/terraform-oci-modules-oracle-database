@@ -18,6 +18,7 @@ Modules included in this repository:
 2. Common Database resources (Database Homes, container databases, and pluggable databases). [See more details](./common-database/README.md)
 3. Autonomous Database Services. [See more details](./autonomous-database/README.md)
 4. Autonomous Recovery Service. [See more details](./autonomous-recovery-service/README.md)
+5. Base Database Service. [See more details](./base-database/README.md)
 
 
 ## <a name="modules-collection">OCI Landing Zones Modules Collection</a>
