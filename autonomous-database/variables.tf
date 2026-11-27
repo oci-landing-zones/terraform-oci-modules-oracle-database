@@ -171,9 +171,10 @@ variable "kms_dependency" {
 }
 
 variable "vaults_dependency" {
-  description = "A map of objects containing the externally managed vaults this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the vault OCID) of string type."
+  description = "A map of objects containing the externally managed vaults this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the vault OCID) of string type. An optional 'management_endpoint' keeps the plan for a new ADB TDE key in that Vault independent of the Vault lookup."
   type = map(object({
-    id = string # the vault OCID.
+    id                  = string           # the vault OCID.
+    management_endpoint = optional(string) # the vault management endpoint URL.
   }))
   default = null
 }

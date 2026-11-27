@@ -6,6 +6,10 @@ data "oci_kms_vault" "these" {
   vault_id = each.value
 
   lifecycle {
+    postcondition {
+      condition     = try(var.vaults_dependency[local.tde_vault_id_inputs[each.key]].management_endpoint, null) == null ? true : self.management_endpoint == var.vaults_dependency[local.tde_vault_id_inputs[each.key]].management_endpoint
+      error_message = "The management_endpoint in vaults_dependency for security.tde.existing_oci_vault_id must match the management endpoint of that Vault."
+    }
     precondition {
       condition     = each.value != null && can(regex("^ocid1\\.vault\\.", each.value))
       error_message = "For ADB Shared/Serverless TDE, security.tde.existing_oci_vault_id must be a Vault OCID (ocid1.vault...) or a key in vaults_dependency. A Vault OCID stored in kms_dependency is still accepted as a deprecated 1.1.0 compatibility fallback."
@@ -28,12 +32,29 @@ data "oci_kms_key" "these" {
 
 locals {
 
+  # New TDE keys whose Vault is a key in vaults_dependency. The Vaults module
+  # receives that Vault as a dependency and the key references it by name, so the
+  # key's management endpoint (which forces replacement) comes from
+  # vaults_dependency instead of a lookup that a module-level depends_on can defer.
+  # Without management_endpoint in vaults_dependency, the lookup value is used.
+  tde_key_vault_inputs = {
+    for k, input in local.tde_vault_id_inputs : k => input
+    if local.db_configs[k].deploy_new_oci_encryption_key && contains(keys(data.oci_kms_vault.these), k) && (input == null ? false : (length(regexall("^ocid1\\.vault\\.", input)) == 0 && contains(var.vaults_dependency == null ? [] : keys(var.vaults_dependency), input)))
+  }
+  tde_key_vaults_dependency = {
+    for k, input in local.tde_key_vault_inputs : "${k}-VAULT" => {
+      vault_id            = local.tde_vault_ids[k]
+      management_endpoint = try(var.vaults_dependency[input].management_endpoint, null) != null ? var.vaults_dependency[input].management_endpoint : data.oci_kms_vault.these[k].management_endpoint
+    }
+  }
+
   vaults_configuration = {
     default_compartment_id = null
     keys = { for k, v in local.db_configs : "${k}-KEY" => {
-      name           = "${v.db_name}-key"
-      vault_id       = data.oci_kms_vault.these[k].vault_id
-      compartment_id = v.compartment_id
+      name                      = "${v.db_name}-key"
+      vault_id                  = contains(keys(local.tde_key_vault_inputs), k) ? null : data.oci_kms_vault.these[k].vault_id
+      vault_management_endpoint = contains(keys(local.tde_key_vault_inputs), k) ? "${k}-VAULT" : null
+      compartment_id            = v.compartment_id
     } if v.deploy_new_oci_encryption_key && contains(keys(data.oci_kms_vault.these), k) }
   }
 
@@ -100,4 +121,5 @@ module "master_keys" {
     oci.home = oci.home
   }
   vaults_configuration = local.vaults_configuration
+  vaults_dependency    = local.tde_key_vaults_dependency
 }
