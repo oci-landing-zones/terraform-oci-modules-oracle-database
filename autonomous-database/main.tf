@@ -196,11 +196,11 @@ resource "oci_database_autonomous_database" "these" {
     }
     precondition {
       condition     = local.db_configs[each.key].is_dedicated == true || local.db_configs[each.key].oci_vault_id_input == null || (local.db_configs[each.key].oci_vault_id != null && can(regex("^ocid1\\.vault\\.", local.db_configs[each.key].oci_vault_id)))
-      error_message = "ADB Shared/Serverless TDE vault keys must resolve through vaults_dependency. A temporary 1.1.0 compatibility fallback accepts a vault OCID stored in kms_dependency, but this fallback is deprecated."
+      error_message = "For ADB Shared/Serverless TDE, security.tde.existing_oci_vault_id must be a Vault OCID (ocid1.vault...) or a key in vaults_dependency. A Vault OCID stored in kms_dependency is still accepted as a deprecated 1.1.0 compatibility fallback."
     }
     precondition {
       condition     = local.db_configs[each.key].is_dedicated == true || local.db_configs[each.key].deploy_new_oci_encryption_key == true || local.db_configs[each.key].oci_encryption_key_id_input == null || (local.db_configs[each.key].oci_encryption_key_id != null && can(regex("^ocid1\\.key\\.", local.db_configs[each.key].oci_encryption_key_id)))
-      error_message = "ADB Shared/Serverless TDE encryption key IDs must resolve through kms_dependency. Use a literal key OCID or a valid kms_dependency key."
+      error_message = "For ADB Shared/Serverless TDE, security.tde.existing_oci_encryption_key_id must be a key OCID (ocid1.key...) or a key in kms_dependency."
     }
   }
 }
