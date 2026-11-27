@@ -67,10 +67,6 @@ data "oci_secrets_secretbundle" "pdb_container_admin_password" {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "container_database_admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
     }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current container database admin password secret content must be nonempty valid Base64."
-    }
   }
 }
 data "oci_secrets_secretbundle" "pdb_admin_password" {
@@ -81,10 +77,6 @@ data "oci_secrets_secretbundle" "pdb_admin_password" {
     precondition {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "pdb_admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
-    }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current PDB admin password secret content must be nonempty valid Base64."
     }
   }
 }
@@ -97,10 +89,6 @@ data "oci_secrets_secretbundle" "pdb_dblink_user_password" {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "dblink_user_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
     }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current database-link password secret content must be nonempty valid Base64."
-    }
   }
 }
 data "oci_secrets_secretbundle" "pdb_source_container_admin_password" {
@@ -111,10 +99,6 @@ data "oci_secrets_secretbundle" "pdb_source_container_admin_password" {
     precondition {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "source_container_database_admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
-    }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current source container admin password secret content must be nonempty valid Base64."
     }
   }
 }
@@ -127,9 +111,23 @@ data "oci_secrets_secretbundle" "pdb_tde_wallet_password" {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "tde_wallet_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
     }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current TDE wallet password secret content must be nonempty valid Base64."
+  }
+}
+
+locals {
+  # Validity of Vault secret contents, kept as booleans outside condition
+  # expressions: a failed condition prints every value it references, and the
+  # OCI provider does not mark secret contents as sensitive.
+  pdb_secret_content_valid = {
+    for key in keys(local.pluggable_databases) : key => {
+      for attribute, bundles in {
+        "container_database_admin_password_secret_id"                                  = data.oci_secrets_secretbundle.pdb_container_admin_password
+        "pdb_admin_password_secret_id"                                                 = data.oci_secrets_secretbundle.pdb_admin_password
+        "pdb_creation_type_details.dblink_user_password_secret_id"                     = data.oci_secrets_secretbundle.pdb_dblink_user_password
+        "pdb_creation_type_details.source_container_database_admin_password_secret_id" = data.oci_secrets_secretbundle.pdb_source_container_admin_password
+        "tde_wallet_password_secret_id"                                                = data.oci_secrets_secretbundle.pdb_tde_wallet_password
+      } : attribute => try(length(base64decode(bundles[key].secret_bundle_content[0].content)) > 0, false)
+      if contains(keys(bundles), key)
     }
   }
 }
@@ -197,6 +195,11 @@ resource "oci_database_pluggable_database" "these" {
     precondition {
       condition     = local.pluggable_databases[each.key].source_pluggable_database_id_input == null ? true : (try(local.pluggable_databases[each.key].pdb_creation_type_details.source_pluggable_database_id, null) != null && can(regex("^ocid1\\.pluggabledatabase\\.", local.pluggable_databases[each.key].pdb_creation_type_details.source_pluggable_database_id)))
       error_message = "source_pluggable_database_id must be a pluggable database OCID or a key in database_dependency.pluggable_databases."
+    }
+
+    precondition {
+      condition     = alltrue(values(local.pdb_secret_content_valid[each.key]))
+      error_message = "The CURRENT version of each referenced Vault secret must contain nonempty Base64 content that decodes to UTF-8 text. Check: ${join(", ", [for attribute, valid in local.pdb_secret_content_valid[each.key] : attribute if !valid])}."
     }
 
     precondition {

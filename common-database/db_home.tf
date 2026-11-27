@@ -130,10 +130,6 @@ data "oci_secrets_secretbundle" "legacy_admin_password" {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
     }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current admin password secret content must be nonempty valid Base64."
-    }
   }
 }
 
@@ -147,10 +143,6 @@ data "oci_secrets_secretbundle" "legacy_backup_tde_password" {
     precondition {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "backup_tde_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
-    }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current backup TDE password secret content must be nonempty valid Base64."
     }
   }
 }
@@ -166,10 +158,6 @@ data "oci_secrets_secretbundle" "legacy_encryption_hsm_password" {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "hsm_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
     }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current HSM password secret content must be nonempty valid Base64."
-    }
   }
 }
 
@@ -184,10 +172,26 @@ data "oci_secrets_secretbundle" "legacy_tde_wallet_password" {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "tde_wallet_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
     }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current TDE wallet password secret content must be nonempty valid Base64."
-    }
+  }
+}
+
+locals {
+  # Validity of Vault secret contents, kept as booleans outside condition
+  # expressions: a failed condition prints every value it references, and the
+  # OCI provider does not mark secret contents as sensitive.
+  legacy_secret_content_valid = {
+    for dbhome_key in keys(local.cloud_db_homes) : dbhome_key => merge([
+      for attribute, bundles in {
+        "admin_password_secret_id"                               = data.oci_secrets_secretbundle.legacy_admin_password
+        "backup_tde_password_secret_id"                          = data.oci_secrets_secretbundle.legacy_backup_tde_password
+        "encryption_key_location_details.hsm_password_secret_id" = data.oci_secrets_secretbundle.legacy_encryption_hsm_password
+        "tde_wallet_password_secret_id"                          = data.oci_secrets_secretbundle.legacy_tde_wallet_password
+        } : {
+        for bundle_key, bundle in bundles :
+        "database.${join(".", slice(jsondecode(bundle_key), 1, length(jsondecode(bundle_key))))}.${attribute}" => try(length(base64decode(bundle.secret_bundle_content[0].content)) > 0, false)
+        if jsondecode(bundle_key)[0] == dbhome_key
+      }
+    ]...)
   }
 }
 
@@ -303,6 +307,11 @@ resource "oci_database_db_home" "these" {
     precondition {
       condition     = each.value.kms_key_id_input == null ? true : (each.value.kms_key_id != null && can(regex("^ocid1\\.", each.value.kms_key_id)))
       error_message = "kms_key_id must be an OCID or a key in kms_dependency."
+    }
+
+    precondition {
+      condition     = alltrue(values(local.legacy_secret_content_valid[each.key]))
+      error_message = "The CURRENT version of each referenced Vault secret must contain nonempty Base64 content that decodes to UTF-8 text. Check: ${join(", ", [for attribute, valid in local.legacy_secret_content_valid[each.key] : attribute if !valid])}."
     }
 
     precondition {

@@ -11,30 +11,28 @@ data "oci_secrets_secretbundle" "admin_password" {
   for_each  = local.secret_ids
   secret_id = each.value
   stage     = "CURRENT"
-
-  lifecycle {
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current admin password secret content must be nonempty valid Base64."
-    }
-  }
 }
 
 data "oci_secrets_secretbundle" "additional_pdb_admin_password" {
   for_each  = local.additional_pdb_secret_ids
   secret_id = each.value
   stage     = "CURRENT"
-
-  lifecycle {
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current additional PDB admin password secret content must be nonempty valid Base64."
-    }
-  }
 }
 
 data "oci_identity_availability_domains" "ads" {
   compartment_id = var.tenancy_ocid
+}
+
+locals {
+  # Validity of Vault secret contents, kept as booleans outside condition
+  # expressions: a failed condition prints every value it references, and the
+  # OCI provider does not mark secret contents as sensitive.
+  db_system_secret_content_valid = {
+    for key, bundle in data.oci_secrets_secretbundle.admin_password : key => try(length(base64decode(bundle.secret_bundle_content[0].content)) > 0, false)
+  }
+  additional_pdb_secret_content_valid = {
+    for key, bundle in data.oci_secrets_secretbundle.additional_pdb_admin_password : key => try(length(base64decode(bundle.secret_bundle_content[0].content)) > 0, false)
+  }
 }
 
 resource "oci_database_db_system" "these" {
@@ -69,6 +67,11 @@ resource "oci_database_db_system" "these" {
     precondition {
       condition     = try(length(local.db_systems[each.key].db_home.database.admin_password) > 0, false) || try(local.secret_ids[each.key], null) != null
       error_message = "${each.key} admin_password_secret_id must be a secret OCID or a key in secrets_dependency."
+    }
+
+    precondition {
+      condition     = lookup(local.db_system_secret_content_valid, each.key, true)
+      error_message = "${each.key} The CURRENT version of the admin_password_secret_id Vault secret must contain nonempty Base64 content that decodes to UTF-8 text."
     }
 
     precondition {
@@ -202,6 +205,11 @@ resource "oci_database_pluggable_database" "these" {
     precondition {
       condition     = oci_database_db_system.these[each.value.db_system_key].db_home[0].database[0].id != null
       error_message = "${each.key} cannot be created because the parent container database ID is not available."
+    }
+
+    precondition {
+      condition     = lookup(local.additional_pdb_secret_content_valid, each.key, true)
+      error_message = "${each.key} The CURRENT version of the pdb_admin_password_secret_id Vault secret must contain nonempty Base64 content that decodes to UTF-8 text."
     }
 
     precondition {

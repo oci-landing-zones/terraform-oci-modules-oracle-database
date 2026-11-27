@@ -99,10 +99,15 @@ data "oci_secrets_secretbundle" "admin_password" {
       condition     = each.value != null && can(regex("^ocid1\\.vaultsecret\\.", each.value))
       error_message = "admin_password_secret_id must be an OCI Vault secret OCID or a key in secrets_dependency."
     }
-    postcondition {
-      condition     = try(length(base64decode(self.secret_bundle_content[0].content)) > 0, false)
-      error_message = "The current admin password secret content must be nonempty valid Base64."
-    }
+  }
+}
+
+locals {
+  # Validity of Vault secret contents, kept as booleans outside condition
+  # expressions: a failed condition prints every value it references, and the
+  # OCI provider does not mark secret contents as sensitive.
+  admin_password_secret_content_valid = {
+    for key, bundle in data.oci_secrets_secretbundle.admin_password : key => try(length(base64decode(bundle.secret_bundle_content[0].content)) > 0, false)
   }
 }
 
@@ -169,6 +174,11 @@ resource "oci_database_autonomous_database" "these" {
       condition     = local.db_configs[each.key].compartment_id != null && can(regex("^ocid1\\.compartment\\.", local.db_configs[each.key].compartment_id))
       error_message = "compartment_id must be a compartment OCID or a key in compartments_dependency."
     }
+    precondition {
+      condition     = lookup(local.admin_password_secret_content_valid, each.key, true)
+      error_message = "The CURRENT version of the admin_password_secret_id Vault secret must contain nonempty Base64 content that decodes to UTF-8 text."
+    }
+
     precondition {
       condition = try(
         length(nonsensitive(local.admin_passwords[each.key])) >= 12 &&
