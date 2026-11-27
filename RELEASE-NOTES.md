@@ -42,7 +42,8 @@ This patch release fixes upgrade, import, and Terraform-version issues, and adds
 
 ## Known limitations
 
-- With OCI provider 9.15.0, `oci_database_database` does not update the top-level `kms_key_id` after creation, and the nested `database.kms_key_id`, `database.kms_key_version_id`, and `database.vault_id` force replacement ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_database_resource.go)). The module sets the top-level and nested key from the same input, so changing the key, key version, or Vault of an existing standalone CDB in Terraform plans a CDB replacement. Change CDB encryption keys outside Terraform until this is addressed.
+- With OCI provider 9.15.0, `oci_database_database` does not update the top-level `kms_key_id` after creation, and the nested `database.kms_key_id`, `database.kms_key_version_id`, and `database.vault_id` force replacement ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_database_resource.go)). The module sets the top-level and nested key from the same input, so changing the key, key version, or Vault of an existing standalone CDB in Terraform plans a CDB replacement. Change CDB encryption keys outside Terraform until this is addressed. Then set `kms_key_id`, `database.vault_id`, and `kms_key_version_id` (if you set it) to the values OCI now reports, and run a plan to confirm that it does not replace the CDB.
+- Before applying any plan that includes a CDB with a customer-managed key, check that `database.kms_key_id`, `database.kms_key_version_id`, and `database.vault_id` are not marked `# forces replacement`. If they are, do not apply.
 
 # November 5, 2026 Release Notes - 1.3.0
 

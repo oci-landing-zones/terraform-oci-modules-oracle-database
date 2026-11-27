@@ -98,7 +98,7 @@ Each `databases_configuration` entry creates a standalone CDB. Its `db_home_id` 
 
 `source` selects the creation operation and is ignored after creation. The OCI provider cannot reconstruct it from a read, so a missing `source` in imported state no longer causes a replacement by itself. Other inputs still follow their OCI provider lifecycle rules. For example, adding a `backup_id` absent from the imported state can still require replacement. To adopt an existing CDB without requesting a restore or standby, use `source = "NONE"` and review the full import plan before applying.
 
-With OCI provider 9.15.0, changing `kms_key_id`, `kms_key_version_id`, or `database.vault_id` of an existing CDB in Terraform plans a CDB replacement. See Known limitations in the [release notes](../RELEASE-NOTES.md), and change CDB encryption keys outside Terraform.
+With OCI provider 9.15.0, changing `kms_key_id`, `kms_key_version_id`, or `database.vault_id` of an existing CDB in Terraform plans a CDB replacement. See Known limitations in the [release notes](../RELEASE-NOTES.md), and change CDB encryption keys outside Terraform. Then set those inputs to the values OCI reports, and confirm that the plan does not replace the CDB.
 
 `database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. In particular, `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later. The module does not manage later CDB DB Home changes, which allows an out-of-place DB Home patch to remain in place. The OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; customer-defined and freeform tags remain managed.
 
