@@ -1,32 +1,33 @@
 # Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 locals {
+  # Default nullable maps without propagating password sensitivity to resource keys.
   legacy_admin_password_secret_id_inputs = merge({}, [
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : {
-      for database_key, database in coalesce(dbhome.database, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : {
+      for database_key, database in merge({}, dbhome.database) :
       jsonencode([dbhome_key, database_key]) => try(trimspace(database.admin_password_secret_id), "")
     }
   ]...)
 
   legacy_backup_tde_password_secret_id_inputs = merge({}, [
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : {
-      for database_key, database in coalesce(dbhome.database, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : {
+      for database_key, database in merge({}, dbhome.database) :
       jsonencode([dbhome_key, database_key]) => try(trimspace(database.backup_tde_password_secret_id), "")
     }
   ]...)
 
   legacy_encryption_hsm_password_secret_id_inputs = merge({}, flatten([
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : [
-      for database_key, database in coalesce(dbhome.database, {}) : {
-        for detail_key, detail in coalesce(database.encryption_key_location_details, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : [
+      for database_key, database in merge({}, dbhome.database) : {
+        for detail_key, detail in merge({}, database.encryption_key_location_details) :
         jsonencode([dbhome_key, database_key, detail_key]) => try(trimspace(detail.hsm_password_secret_id), "")
       }
     ]
   ])...)
 
   legacy_tde_wallet_password_secret_id_inputs = merge({}, [
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : {
-      for database_key, database in coalesce(dbhome.database, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : {
+      for database_key, database in merge({}, dbhome.database) :
       jsonencode([dbhome_key, database_key]) => try(trimspace(database.tde_wallet_password_secret_id), "")
     }
   ]...)
@@ -56,8 +57,8 @@ locals {
   }
 
   legacy_admin_passwords = merge({}, [
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : {
-      for database_key, database in coalesce(dbhome.database, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : {
+      for database_key, database in merge({}, dbhome.database) :
       jsonencode([dbhome_key, database_key]) => sensitive(
         try(length(database.admin_password) > 0, false)
         ? database.admin_password
@@ -67,8 +68,8 @@ locals {
   ]...)
 
   legacy_backup_tde_passwords = merge({}, [
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : {
-      for database_key, database in coalesce(dbhome.database, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : {
+      for database_key, database in merge({}, dbhome.database) :
       jsonencode([dbhome_key, database_key]) => sensitive(
         try(length(database.backup_tde_password) > 0, false)
         ? database.backup_tde_password
@@ -78,9 +79,9 @@ locals {
   ]...)
 
   legacy_encryption_hsm_passwords = merge({}, flatten([
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : [
-      for database_key, database in coalesce(dbhome.database, {}) : {
-        for detail_key, detail in coalesce(database.encryption_key_location_details, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : [
+      for database_key, database in merge({}, dbhome.database) : {
+        for detail_key, detail in merge({}, database.encryption_key_location_details) :
         jsonencode([dbhome_key, database_key, detail_key]) => sensitive(
           try(length(detail.hsm_password) > 0, false)
           ? detail.hsm_password
@@ -91,8 +92,8 @@ locals {
   ])...)
 
   legacy_tde_wallet_passwords = merge({}, [
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) : {
-      for database_key, database in coalesce(dbhome.database, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) : {
+      for database_key, database in merge({}, dbhome.database) :
       jsonencode([dbhome_key, database_key]) => sensitive(
         try(length(database.tde_wallet_password) > 0, false)
         ? database.tde_wallet_password
@@ -102,7 +103,7 @@ locals {
   ]...)
 
   cloud_db_homes = {
-    for dbhome_key, dbhome in coalesce(var.cloud_db_homes_configuration, {}) :
+    for dbhome_key, dbhome in merge({}, var.cloud_db_homes_configuration) :
     dbhome_key => merge(dbhome, {
       # Resolve VM Cluster ID: use as-is if OCID, or reference created VM cluster by key
       vm_cluster_id_input = dbhome.vm_cluster_id
