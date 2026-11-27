@@ -19,6 +19,7 @@ This patch release fixes upgrade, import, and Terraform-version issues, and adds
 13. With `db_servers = ["ALL"]`, the DB server lookup now uses the Exadata infrastructure compartment when it is known: infrastructure created by the module, or `compartment_id` set in `exadata_database_dependency.cloud_exadata_infrastructures`. Otherwise it keeps using the VM Cluster compartment.
 14. Cloud VM Cluster `timeouts` must now be positive durations.
 15. Removed the trailing newline from the `ocilz-terraform-module` tag value, and clarified the ADB Shared / Serverless TDE Vault and key error messages.
+16. Kept Vault secret content out of plan and apply output. The OCI provider does not mark secret bundle content as sensitive, so a failed check on a secret whose Base64 content did not decode to UTF-8 text printed that Base64 value. Autonomous Database, Base Database, and Common Database now report only which secret reference failed.
 
 ## Upgrading to 1.3.1
 
