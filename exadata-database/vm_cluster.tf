@@ -17,8 +17,17 @@ locals {
     subscription_id        = can(regex("^ocid1\\.", vm.subscription_id)) ? vm.subscription_id : try(var.subscription_dependency[vm.subscription_id].id, null)
   }) }
 
+  # DB servers belong to the Exadata infrastructure, so look them up in the
+  # infrastructure compartment when it is known. Fall back to the VM Cluster
+  # compartment for infrastructure referenced only by a literal OCID.
   cloud_vm_clusters_with_db_server_lookup = {
-    for vm_key, vm in local.cloud_vm_clusters : vm_key => vm
+    for vm_key, vm in local.cloud_vm_clusters : vm_key => merge(vm, {
+      db_server_compartment_id = try(coalesce(
+        try(oci_database_cloud_exadata_infrastructure.these[vm.exadata_infrastructure_id].compartment_id, null),
+        try(var.exadata_database_dependency.cloud_exadata_infrastructures[vm.exadata_infrastructure_id].compartment_id, null),
+        vm.compartment_id
+      ), null)
+    })
     if contains(coalesce(vm.db_servers, []), "ALL")
   }
   cloud_vm_clusters_deployed = merge(oci_database_cloud_vm_cluster.these, oci_database_cloud_vm_cluster.these_ignore_cpu_changes)
@@ -26,7 +35,7 @@ locals {
 
 data "oci_database_db_servers" "these" {
   for_each                  = local.cloud_vm_clusters_with_db_server_lookup
-  compartment_id            = each.value.compartment_id
+  compartment_id            = each.value.db_server_compartment_id
   exadata_infrastructure_id = each.value.exadata_infra_id
 
   lifecycle {
@@ -35,8 +44,8 @@ data "oci_database_db_servers" "these" {
       error_message = "exadata_infrastructure_id must be a Cloud Exadata infrastructure OCID or a key in exadata_database_dependency.cloud_exadata_infrastructures."
     }
     precondition {
-      condition     = each.value.compartment_id != null && can(regex("^ocid1\\.(compartment|tenancy)\\.", each.value.compartment_id))
-      error_message = "compartment_id must be a compartment OCID, the tenancy OCID for the root compartment, or a key in compartments_dependency."
+      condition     = each.value.db_server_compartment_id != null && can(regex("^ocid1\\.(compartment|tenancy)\\.", each.value.db_server_compartment_id))
+      error_message = "The DB server lookup for db_servers = [\"ALL\"] needs the Exadata infrastructure compartment. Set compartment_id in exadata_database_dependency.cloud_exadata_infrastructures, or a valid VM Cluster compartment_id."
     }
   }
 }
