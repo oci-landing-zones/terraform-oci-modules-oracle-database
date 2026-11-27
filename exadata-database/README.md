@@ -306,7 +306,7 @@ The module does not manage later changes to `db_home_id`, `db_version`, or those
 
 `source` selects the creation operation and is ignored after creation. The OCI provider cannot reconstruct it from a read, so a missing `source` in imported state no longer causes a replacement by itself. Other inputs still follow their OCI provider lifecycle rules. For example, adding a `backup_id` absent from the imported state can still require replacement. To adopt an existing CDB without requesting a restore or standby, use `source = "NONE"` and review the full import plan before applying.
 
-With OCI provider 9.15.0, changing `kms_key_id` or `kms_key_version_id` of an existing CDB in Terraform plans a CDB replacement. See Known limitations in the [release notes](../RELEASE-NOTES.md), and change CDB encryption keys outside Terraform.
+With OCI provider 9.15.0, changing `kms_key_id`, `kms_key_version_id`, or `database.vault_id` of an existing CDB in Terraform plans a CDB replacement. See Known limitations in the [release notes](../RELEASE-NOTES.md), and change CDB encryption keys outside Terraform.
 
 OCI tag defaults can add tenancy-specific defined tags when a CDB is created. To manage one of those tags with Terraform, declare its key and value in `default_defined_tags` or `database.defined_tags`. Direct module callers that intentionally do not want Terraform to manage a particular tag can add its fully qualified key to the OCI provider's `ignore_defined_tags` setting:
 

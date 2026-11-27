@@ -41,7 +41,7 @@ This patch release fixes upgrade, import, and Terraform-version issues, and adds
 
 ## Known limitations
 
-- With OCI provider 9.15.0, `oci_database_database` does not update the top-level `kms_key_id` after creation, and the nested `database.kms_key_id` and `database.kms_key_version_id` force replacement ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_database_resource.go)). The module sets both from the same input, so changing the key or key version of an existing standalone CDB in Terraform plans a CDB replacement. Change CDB encryption keys outside Terraform until this is addressed.
+- With OCI provider 9.15.0, `oci_database_database` does not update the top-level `kms_key_id` after creation, and the nested `database.kms_key_id`, `database.kms_key_version_id`, and `database.vault_id` force replacement ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_database_resource.go)). The module sets the top-level and nested key from the same input, so changing the key, key version, or Vault of an existing standalone CDB in Terraform plans a CDB replacement. Change CDB encryption keys outside Terraform until this is addressed.
 
 # November 5, 2026 Release Notes - 1.3.0
 
