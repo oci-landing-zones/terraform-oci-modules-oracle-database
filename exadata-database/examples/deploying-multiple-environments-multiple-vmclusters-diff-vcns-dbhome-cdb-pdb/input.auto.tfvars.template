@@ -106,20 +106,17 @@ cloud_exadata_infrastructures_configuration = {
       customer_contacts = {
         email = "example2@oracle.com"
       }
-      customer_contacts = {
-        email = "example2@oracle.com"
-      }
       database_server_type = "X11M"
       maintenance_window = {
         preference                       = "CUSTOM_PREFERENCE"
         is_custom_action_timeout_enabled = false
         custom_action_timeout_in_mins    = 20
         days_of_week                     = ["MONDAY"]
-        hours_of_day                     = [2]
+        hours_of_day                     = [0] # start of a 4-hour UTC slot: 0, 4, 8, 12, 16, or 20
         lead_time_in_weeks               = 2
         months                           = ["FEBRUARY", "MAY", "AUGUST", "NOVEMBER"]
         weeks_of_month                   = [1]
-        pathing_mode                     = "ROLLING"
+        patching_mode                    = "ROLLING"
       }
 
       storage_server_type = "X11M-HC"
@@ -303,7 +300,6 @@ cloud_db_homes_configuration = {
     vm_cluster_id = "MY-VM-CLUSTER-1" # required if source = VM_CLUSTER_NEW, replace with the OCID of VM Cluster1
     display_name  = "MyDBHome1"
     db_version    = "19.0.0.0"
-    description   = "DB Home Config"  # optional
     defined_tags  = {}                # optional
     freeform_tags = { "env" = "dev" } # optional
   }
@@ -315,7 +311,6 @@ cloud_db_homes_configuration = {
     vm_cluster_id = "MY-VM-CLUSTER-1" # required if source = VM_CLUSTER_NEW, replace with the OCID of VM Cluster1
     display_name  = "MyDBHome2"
     db_version    = "19.0.0.0"
-    description   = "DB Home Config"  # optional
     source        = "VM_CLUSTER_NEW"  # optional (default = VM_CLUSTER_NEW)
     defined_tags  = {}                # optional
     freeform_tags = { "env" = "dev" } # optional

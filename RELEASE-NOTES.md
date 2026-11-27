@@ -21,6 +21,7 @@ This patch release fixes upgrade, import, and Terraform-version issues, and adds
 15. Removed the trailing newline from the `ocilz-terraform-module` tag value, and clarified the ADB Shared / Serverless TDE Vault and key error messages.
 16. Kept Vault secret content out of plan and apply output. The OCI provider does not mark secret bundle content as sensitive, so a failed check on a secret whose Base64 content did not decode to UTF-8 text printed that Base64 value. Autonomous Database, Base Database, and Common Database now report only which secret reference failed.
 17. DB Home backup restores now fail during planning when the target does not match `source`. The OCI provider restores `DB_BACKUP` into a DB System and `VM_CLUSTER_BACKUP` into a Cloud VM Cluster ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_db_home_resource.go)), so `DB_BACKUP` needs `db_system_id` and `VM_CLUSTER_BACKUP` needs `vm_cluster_id`. Previously, `DB_BACKUP` with only `vm_cluster_id` passed planning and failed in OCI.
+18. Fixed the Exadata example templates: maintenance window `hours_of_day` values, the `patching_mode` attribute name, duplicate `customer_contacts`, unsupported DB Home `description` attributes, and the description of the additional VM Cluster example.
 
 ## Upgrading to 1.3.1
 

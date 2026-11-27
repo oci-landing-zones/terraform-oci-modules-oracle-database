@@ -74,7 +74,6 @@ cloud_db_homes_configuration = {
     vm_cluster_id  = "ocid1.cloudvmcluster.oc1.eu-frankfurt-1.aaaa" # OCID of existing VM cluster; required if source = VM_CLUSTER_NEW;
     display_name   = "DBHome01"
     db_version     = "19.0.0.0"
-    description    = "DB Home Config" # optional
 
     database_software_image_id  = null              # optional custom DB software image
     db_system_id                = null              # optional, only if source = NONE or DB_BACKUP
