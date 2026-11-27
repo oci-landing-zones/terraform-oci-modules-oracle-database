@@ -84,7 +84,7 @@ For remote use, refer to this module directory in the repository:
 
 ```hcl
 module "autonomous_database" {
-  source = "github.com/oci-landing-zones/terraform-oci-modules-exadata//autonomous-database?ref=v1.2.0"
+  source = "github.com/oci-landing-zones/terraform-oci-modules-oracle-database//autonomous-database?ref=v1.3.1"
   autonomous_databases_configuration = var.autonomous_databases_configuration
   secrets_dependency                 = var.secrets_dependency
   tenancy_ocid                       = var.tenancy_ocid
@@ -146,8 +146,8 @@ Prefer **admin_password_secret_id** to avoid committing a literal password to Gi
     - **tde**: (Optional) Transparent Data Encryption settings. 
       - **deploy_iam_policy_and_dyn_group_for_encryption_key**: (Optional) Whether to deploy an IAM policy and dynamic group for allowing the database to read an encryption key for transparent data encryption. Default value is *true*.
       - **existing_oci_vault_id**(Optional): The OCI vault holding the encryption key. Required if defining tde. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *vaults_dependency* variable. For 1.1.0 upgrade compatibility only, vault OCIDs stored in *kms_dependency* are accepted as a deprecated fallback when no *vaults_dependency* match exists.
-      - **deploy_new_oci_encryption_key**: (Optional) Whether to deploy a new encyption key in the existing vault. Default value is *true*.
-      - **existing_oci_encryption_key_id**: (Optional) The existing encryption key id. Required when *deploy_new_oci_encryption_key* is *false* and *deploy_iam_policy_and_dyn_group_for_encryption_key* is *true*.
+      - **deploy_new_oci_encryption_key**: (Optional) Whether to deploy a new encryption key in the referenced Vault. Default value is *true*. The Vault OCID can be known only after apply when the ADB configuration keys and the key deployment flag are known during planning.
+      - **existing_oci_encryption_key_id**: (Optional) The existing encryption key id. Required when *deploy_new_oci_encryption_key* is *false* and *deploy_iam_policy_and_dyn_group_for_encryption_key* is *true*. When using an existing key, Vault and key OCIDs can remain unknown until apply.
     - **zpr_attributes**: (Optional) List of objects representing ZPR attributes. Only applicable when *enable_private_endpoint* is true.
         - **namespace**: (Optional) ZPR namespace. Default is *oracle-zpr*, a default namespace created by Oracle and available in all tenancies.
         - **attr_name**: (Optional) ZPR attribute name. It must exist in the specified namespace.
