@@ -140,7 +140,7 @@ Each Exadata infrastructure configuration object has the following attributes:
 - display_name: Display name of the Exadata infrastructure.
 - shape: Shape of the Exadata infrastructure. Accepted values are Exadata.X11MV, Exadata.X11M, Exadata.X9M, and Exadata.X8M.
 - compartment_id: Compartment OCID, tenancy OCID for the root compartment, or `compartments_dependency` key for the Exadata infrastructure. Overrides the default compartment ID.
-- availability_domain: Availability domain of the Exadata infrastructure. When omitted, the module selects the lexicographically first name from the availability domains discovered for the resolved compartment.
+- availability_domain: Availability domain of the Exadata infrastructure. When omitted, the module selects the lexicographically first name from the availability domains discovered for the resolved compartment. The module ignores later changes to `availability_domain`, because OCI cannot move existing infrastructure to another Availability Domain. Set `availability_domain` explicitly for production infrastructure so that plans do not depend on the discovery lookup.
 - compute_count: Compute count of the Exadata infrastructure.
 - customer_contacts: Customer contact information.
 - database_server_type: Database server type. Accepted values are X11MV, X11M-BASE, X11M, X11M-L, and X11M-XL.
@@ -176,7 +176,7 @@ backup_network_nsg_ids: Backup network NSG IDs of the VM cluster.
 - data_storage_percentage: Data storage percentage of the VM cluster.
 - data_storage_size_in_tbs: Data storage size in TBs of the VM cluster.
 - db_node_storage_size_in_gbs: DB node storage size in GBs of the VM cluster.
-- db_servers: Optional list of DB server OCIDs or `["ALL"]` to discover the servers for the Exadata infrastructure. This list must be known at plan time to select discovery. If you use `["ALL"]`, the infrastructure and compartment OCIDs can be resolved during apply.
+- db_servers: Optional list of DB server OCIDs or `["ALL"]` to discover the servers for the Exadata infrastructure. This list must be known at plan time to select discovery. If you use `["ALL"]`, the infrastructure and compartment OCIDs can be resolved during apply. The lookup uses the Exadata infrastructure compartment when it is known: infrastructure created by this module, or `compartment_id` in `exadata_database_dependency.cloud_exadata_infrastructures`. For infrastructure given only as a literal OCID, the lookup uses the VM Cluster compartment, so set `compartment_id` in the dependency entry when the infrastructure is in a different compartment.
 - defined_tags: Defined tags for the VM cluster.
 - freeform_tags: Freeform tags for the VM cluster.
 - domain: Domain of the VM cluster.
@@ -195,12 +195,12 @@ backup_network_nsg_ids: Backup network NSG IDs of the VM cluster.
 - subscription_id: Subscription ID of the VM cluster.
 - system_version: System version of the VM cluster.
 - time_zone: Time zone of the VM cluster.
-- timeouts: Optional object with `create`, `update`, and `delete` operation timeouts. Use duration strings such as `"18h"` or `"1h30m"`. Omitted values use the OCI provider defaults, currently 12 hours for each operation.
+- timeouts: Optional object with `create`, `update`, and `delete` operation timeouts. Use positive duration strings such as `"18h"` or `"1h30m"`. Omitted values use the OCI provider defaults, currently 12 hours for each operation ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_cloud_vm_cluster_resource.go)).
 - vm_cluster_type: VM cluster type.
 
 Timeouts control how long Terraform waits for OCI. A stalled work request still needs to be investigated in OCI.
 
-OCI provider 9.15.0 uses the `create` timeout for internal work-request polling on some updates. For a planned update that needs longer than both defaults, set both `create` and `update` to allow the required wait. A timeout-only edit on an existing cluster can produce a no-op. Deletion uses the timeout recorded in prior state, so set `delete` when creating the cluster or when applying an in-place update before removing the cluster.
+OCI provider 9.15.0 uses the `create` timeout for internal work-request polling on some updates ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_cloud_vm_cluster_resource.go)). For a planned update that needs longer than both defaults, set both `create` and `update` to allow the required wait. A timeout-only edit on an existing cluster can produce a no-op. Deletion uses the timeout recorded in prior state, so set `delete` when creating the cluster or when applying an in-place update before removing the cluster.
 
 For compatibility, the module does not manage later changes to:
 - gi_version
@@ -241,7 +241,9 @@ moved {
 }
 ```
 
-Replace the module path and key with the deployed resource address, and ensure the caller uses a module version containing this option. The flag belongs in each VM Cluster's configuration; `moved` blocks belong in root Terraform configuration, not in JSON/YAML workload inputs. Use one block for each existing cluster being switched. Retain the block while any deployment using that root still needs the migration.
+Replace the module path and key with the deployed resource address, and ensure the caller uses a module version containing this option. The flag belongs in each VM Cluster's configuration; `moved` blocks belong in root Terraform configuration, not in JSON/YAML workload inputs. Use one block for each existing cluster being switched. Keep the block until every workspace that uses the root has applied the move. A forward `moved` block only works where that cluster key has `ignore_cpu_changes = true`. In a workspace that still declares the key with the flag off, Terraform rejects the block with `Moved object still exists`. Use separate roots, or different cluster keys, when workspaces need different settings for the same key.
+
+If the root configuration cannot be changed, for example when the flag would be set only through JSON or YAML workload inputs, do not enable `ignore_cpu_changes` on an existing cluster. Without the `moved` block, Terraform plans to destroy the cluster and every DB Home, CDB, and PDB on it.
 
 Review the plan before applying. It should show the expected address move, preserve resource IDs, and show zero destruction or replacement of the cluster, DB Homes, CDBs, and PDBs. If it proposes replacing any of them, stop and correct the migration before applying.
 
@@ -266,7 +268,7 @@ Each DB Home object has the following attributes:
 - kms_key_id: The OCID of the key container that is used as the master encryption key in database transparent data encryption (TDE) operations.
 - kms_key_version_id: The OCID of the key container version that is used in database transparent data encryption (TDE) operations KMS Key can have multiple key versions. If none is specified, the current key version (latest) of the Key Id is used for the operation.
 - freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see Resource Tags. Example: {"Department": "Finance"}
-- source: The source of database: NONE for creating a new database. DB_BACKUP for creating a new database by restoring from a database backup. VM_CLUSTER_NEW for creating a database for VM Cluster.
+- source: The source of database: NONE for creating a new database. DB_BACKUP for creating a new database by restoring from a database backup. VM_CLUSTER_NEW for creating a database for VM Cluster. `source` is used only when the DB Home is created and is ignored afterwards. The OCI provider reads an imported DB Home as `NONE`, so an import no longer plans a replacement because of the default `VM_CLUSTER_NEW`.
 - vm_cluster_id: The OCID or key of the VM cluster.
 
 New Container Databases are created with `databases_configuration`, referencing the DB Home by key or OCID. This standalone contract is the supported path for new same-stack and multi-stack deployments.
@@ -304,6 +306,8 @@ The module does not manage later changes to `db_home_id`, `db_version`, or those
 
 `source` selects the creation operation and is ignored after creation. The OCI provider cannot reconstruct it from a read, so a missing `source` in imported state no longer causes a replacement by itself. Other inputs still follow their OCI provider lifecycle rules. For example, adding a `backup_id` absent from the imported state can still require replacement. To adopt an existing CDB without requesting a restore or standby, use `source = "NONE"` and review the full import plan before applying.
 
+With OCI provider 9.15.0, changing `kms_key_id` or `kms_key_version_id` of an existing CDB in Terraform plans a CDB replacement. See Known limitations in the [release notes](../RELEASE-NOTES.md), and change CDB encryption keys outside Terraform.
+
 OCI tag defaults can add tenancy-specific defined tags when a CDB is created. To manage one of those tags with Terraform, declare its key and value in `default_defined_tags` or `database.defined_tags`. Direct module callers that intentionally do not want Terraform to manage a particular tag can add its fully qualified key to the OCI provider's `ignore_defined_tags` setting:
 
 ```hcl
@@ -337,7 +341,7 @@ Each PDB Configuration object has the following attributes:
 
 `container_database_admin_password`, `pdb_admin_password`, and `tde_wallet_password` are sensitive creation-time values. OCI provenance tags are ignored; other defined tags and freeform tags remain managed. Changes to `container_database_id` remain visible in the Terraform plan.
 
-`should_create_pdb_backup` and `should_pdb_admin_account_be_locked` apply when creating a PDB and are ignored after creation, including for imported PDBs. Changing them on an existing PDB does not take a backup or change the admin account lock status.
+`should_create_pdb_backup` and `should_pdb_admin_account_be_locked` apply when creating a PDB and are ignored after creation, including for imported PDBs. Changing them on an existing PDB does not take a backup or change the admin account lock status. `pdb_creation_type_details` also applies only at creation, including the clone passwords and their `*_secret_id` references. Rotating those Vault secrets, or importing a cloned PDB, does not replace the PDB.
 
 ### <a name="password-secrets">Password Secrets</a>
 

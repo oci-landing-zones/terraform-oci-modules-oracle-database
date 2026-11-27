@@ -90,13 +90,15 @@ Each Database Home selects one target: `vm_cluster_id` for a Cloud VM Cluster or
 
 The legacy inline `cloud_db_homes_configuration[*].database` block is retained only for Exadata Database 1.1.0 upgrade compatibility. New CDB configurations must use `databases_configuration`.
 
-The module does not manage later DB Home software version or image changes. OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored on the DB Home and its legacy inline CDB; other defined tags and all freeform tags remain managed by Terraform. Administration, backup TDE, and TDE wallet passwords in the legacy inline CDB are sensitive creation-time values.
+The module does not manage later DB Home software version or image changes. OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored on the DB Home and its legacy inline CDB; other defined tags and all freeform tags remain managed by Terraform. Administration, backup TDE, and TDE wallet passwords in the legacy inline CDB are sensitive creation-time values. The DB Home `source` is used only at creation and is ignored afterwards. The OCI provider reads an imported DB Home as `NONE`, so an import no longer plans a replacement because of the default `VM_CLUSTER_NEW`.
 
 ### <a name="container-databases">Container Databases</a>
 
 Each `databases_configuration` entry creates a standalone CDB. Its `db_home_id` accepts a Database Home key created in this module, a key from `database_dependency.database_homes`, or a DB Home OCID. The `source` attribute supports `NONE`, `DB_BACKUP`, and `DATAGUARD`; the module validates source-specific required inputs before creation.
 
 `source` selects the creation operation and is ignored after creation. The OCI provider cannot reconstruct it from a read, so a missing `source` in imported state no longer causes a replacement by itself. Other inputs still follow their OCI provider lifecycle rules. For example, adding a `backup_id` absent from the imported state can still require replacement. To adopt an existing CDB without requesting a restore or standby, use `source = "NONE"` and review the full import plan before applying.
+
+With OCI provider 9.15.0, changing `kms_key_id` or `kms_key_version_id` of an existing CDB in Terraform plans a CDB replacement. See Known limitations in the [release notes](../RELEASE-NOTES.md), and change CDB encryption keys outside Terraform.
 
 `database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. In particular, `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later. The module does not manage later CDB DB Home changes, which allows an out-of-place DB Home patch to remain in place. The OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; customer-defined and freeform tags remain managed.
 
@@ -108,7 +110,7 @@ Each `pluggable_databases_configuration` entry creates a PDB. Its `container_dat
 
 `container_database_admin_password`, `pdb_admin_password`, and `tde_wallet_password` are sensitive creation-time values. OCI provenance tags are ignored, while customer-defined and freeform tags remain managed.
 
-`should_create_pdb_backup` and `should_pdb_admin_account_be_locked` apply when creating a PDB and are ignored after creation, including for imported PDBs. Changing them on an existing PDB does not take a backup or change the admin account lock status.
+`should_create_pdb_backup` and `should_pdb_admin_account_be_locked` apply when creating a PDB and are ignored after creation, including for imported PDBs. Changing them on an existing PDB does not take a backup or change the admin account lock status. `pdb_creation_type_details` also applies only at creation, including the clone passwords and their `*_secret_id` references. Rotating those Vault secrets, or importing a cloned PDB, does not replace the PDB.
 
 ### <a name="password-secrets">Password Secrets</a>
 

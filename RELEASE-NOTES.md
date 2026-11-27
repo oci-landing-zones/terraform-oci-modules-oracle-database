@@ -1,5 +1,7 @@
 # Unreleased Release Notes - 1.3.1
 
+This patch release fixes upgrade, import, and Terraform-version issues, and adds two opt-in Exadata options (`timeouts` and `ignore_cpu_changes`). Existing inputs and resource addresses are unchanged.
+
 ## Updates
 
 1. Fixed unnecessary replacement of imported standalone CDBs by ignoring changes to their creation-time `source` after creation. ([#19](https://github.com/oci-landing-zones/terraform-oci-modules-oracle-database/issues/19))
@@ -10,13 +12,32 @@
 6. Fixed ADB Shared / Serverless TDE Vault and existing-key lookups when dependency OCIDs are known only after apply. Updated the Vaults dependency to v0.2.4 to support creating a new TDE key when the Vault OCID is also deferred. ([Vaults issue #22](https://github.com/oci-landing-zones/terraform-oci-modules-security/issues/22))
 7. Added optional `create`, `update`, and `delete` timeouts per Cloud VM Cluster. Omitted values use the OCI provider defaults. See [Cloud VM Clusters](./exadata-database/README.md#cloud-vm-clusters) for provider behavior on updates and deletions. ([#15](https://github.com/oci-landing-zones/terraform-oci-modules-oracle-database/issues/15))
 8. Added optional `ignore_cpu_changes` per Cloud VM Cluster for external CPU scaling, including Oracle Dynamic Scaling (ODyS). Enabling it on an existing Terraform-managed cluster requires a per-cluster `moved` block. See [Cloud VM Clusters](./exadata-database/README.md#cloud-vm-clusters).
+9. Prevented Exadata infrastructure replacement when `availability_domain` defaults to the discovered AD and that lookup is deferred until apply, for example because the module call has a module-level `depends_on` with pending changes. OCI cannot change the Availability Domain of existing infrastructure, so the module now ignores later `availability_domain` changes.
+10. Prevented PDB replacement when the Vault secret behind `dblink_user_password_secret_id` or `source_container_database_admin_password_secret_id` is rotated, and when a cloned PDB is imported. `pdb_creation_type_details` now applies only when the PDB is created.
+11. Prevented replacement of imported DB Homes. The OCI provider reads `source = "NONE"` for an imported DB Home, so `source` is now ignored after creation, as for standalone CDBs in item 1.
+12. Fixed Base Database planning on Terraform versions earlier than 1.12, including Terraform 1.5.7 used by OCI Resource Manager. Validations and conditions no longer depend on short-circuit evaluation of `||` and `&&`, which Terraform added in 1.12.0.
+13. With `db_servers = ["ALL"]`, the DB server lookup now uses the Exadata infrastructure compartment when it is known: infrastructure created by the module, or `compartment_id` set in `exadata_database_dependency.cloud_exadata_infrastructures`. Otherwise it keeps using the VM Cluster compartment.
+14. Cloud VM Cluster `timeouts` must now be positive durations.
+15. Removed the trailing newline from the `ocilz-terraform-module` tag value, and clarified the ADB Shared / Serverless TDE Vault and key error messages.
 
 ## Upgrading to 1.3.1
 
 - From 1.1.0, keep existing inline CDB configuration in its DB Home. Terraform moves the resource addresses as described in [Updating from 1.1.0](./exadata-database/README.md#updating-from-110).
 - From 1.2.0 or 1.3.0, keep existing inputs and resource addresses when leaving `ignore_cpu_changes` omitted or `false`. If you tested the 1.2.1 candidate with external CPU management enabled, keep the flag and any existing per-cluster `moved` blocks when upgrading to 1.3.1. Version 1.3.0 predates that resource address and can plan replacements for those clusters and their dependents.
 - Module-managed `ocilz-terraform-module` tags can show in-place updates to 1.3.1. Existing ADB TDE keys created by the Vaults child module can also show a tag update to reflect Vaults v0.2.4. Keep the provider version from your lockfile for the first upgrade plan and review the actions before applying.
-- Orchestrator users need module source references that select 1.3.1 to use these fixes and options. The published Orchestrator v2.4.1 still references `release-1.2.0` for Exadata and ADB. Its module calls pass Vault and encryption-key dependencies where supported. For password secrets through that release, supply Vault secret OCIDs directly. Logical password secret keys require a direct module call with `secrets_dependency`. Keep the provider version compatible with the Orchestrator stack. The OKE module bundled with v2.4.1 constrains the OCI provider to versions below 9.0.0.
+- Orchestrator users need module source references that select 1.3.1 to use these fixes and options. The published Orchestrator v2.4.1 still references `release-1.2.0` for Exadata and ADB. Its module calls pass Vault and encryption-key dependencies where supported. For password secrets through that release, supply Vault secret OCIDs directly. Logical password secret keys require a direct module call with `secrets_dependency`. Keep the provider version compatible with the Orchestrator stack. The OKE module bundled with v2.4.1 ([cis-oke v0.3.0](https://github.com/oci-landing-zones/terraform-oci-modules-workloads/blob/v0.3.0/cis-oke/providers.tf)) constrains the OCI provider to versions below 9.0.0.
+- Expect these actions in the first plan after upgrading with unchanged inputs:
+  - in-place updates of the `ocilz-terraform-module` tag on module-managed resources;
+  - `+ timeouts {}` on Cloud VM Clusters. Timeouts are stored by Terraform, not sent to OCI;
+  - for Cloud VM Clusters with `db_servers = ["ALL"]`, a DB server lookup read during apply and `db_servers = [...] -> (known after apply)`. Terraform defers the lookup because the Exadata infrastructure has a pending tag update. OCI provider 9.15.0 does not send `db_servers` when it updates a Cloud VM Cluster ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_cloud_vm_cluster_resource.go)), so this does not change the cluster.
+
+  Any other replacement (`-/+`) or destroy is unexpected: stop and investigate before applying.
+- The Orchestrator calls these modules with a module-level `depends_on`. While that dependency has pending changes, Terraform defers every lookup inside the module until apply. 1.3.1 no longer replaces Exadata infrastructure in that case. However, a TDE master key created for ADB Shared / Serverless through the Vaults module can still be planned for replacement, because its `management_endpoint` becomes unknown. Destroying the key schedules its deletion, and data encrypted with a key pending deletion becomes inaccessible ([OCI Vault documentation](https://docs.oracle.com/en-us/iaas/Content/KeyManagement/Tasks/managingkeys_topic-To_delete_a_key.htm)). Review any planned replacement of `oci_kms_key` before applying.
+- Do not set `ignore_cpu_changes` on an existing Cloud VM Cluster through JSON or YAML workload inputs alone. Without the matching root `moved` block, Terraform plans to destroy the cluster and every DB Home, CDB, and PDB on it. See [Cloud VM Clusters](./exadata-database/README.md#cloud-vm-clusters).
+
+## Known limitations
+
+- With OCI provider 9.15.0, `oci_database_database` does not update the top-level `kms_key_id` after creation, and the nested `database.kms_key_id` and `database.kms_key_version_id` force replacement ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_database_resource.go)). The module sets both from the same input, so changing the key or key version of an existing standalone CDB in Terraform plans a CDB replacement. Change CDB encryption keys outside Terraform until this is addressed.
 
 # November 5, 2026 Release Notes - 1.3.0
 
