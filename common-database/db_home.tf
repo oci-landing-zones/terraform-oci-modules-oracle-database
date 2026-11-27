@@ -299,6 +299,18 @@ resource "oci_database_db_home" "these" {
       error_message = "vm_cluster_id must be a Cloud VM Cluster OCID or a key in vm_cluster_dependency."
     }
 
+    # The OCI provider builds a DB System request for DB_BACKUP and a VM Cluster
+    # request for VM_CLUSTER_BACKUP, so a backup restore needs the matching target.
+    precondition {
+      condition     = each.value.source != "DB_BACKUP" ? true : each.value.db_system_id != null
+      error_message = "source = \"DB_BACKUP\" restores a backup into a DB System and needs db_system_id. To restore a backup into a Cloud VM Cluster, use source = \"VM_CLUSTER_BACKUP\" with vm_cluster_id."
+    }
+
+    precondition {
+      condition     = each.value.source != "VM_CLUSTER_BACKUP" ? true : (each.value.vm_cluster_id != null && can(regex("^ocid1\\.cloudvmcluster\\.", each.value.vm_cluster_id)))
+      error_message = "source = \"VM_CLUSTER_BACKUP\" restores a backup into a Cloud VM Cluster and needs vm_cluster_id: a Cloud VM Cluster OCID or a key in vm_cluster_dependency."
+    }
+
     precondition {
       condition     = each.value.db_system_id_input == null ? true : (each.value.db_system_id != null && can(regex("^ocid1\\.dbsystem\\.", each.value.db_system_id)))
       error_message = "db_system_id must be a DB System OCID or a key in db_system_dependency."
