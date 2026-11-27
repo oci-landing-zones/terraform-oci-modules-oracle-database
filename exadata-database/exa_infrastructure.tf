@@ -102,6 +102,10 @@ resource "oci_database_cloud_exadata_infrastructure" "these" {
     }
 
     ignore_changes = [
+      # The Availability Domain of existing infrastructure cannot change. When it
+      # defaults to the discovered AD, a lookup deferred to apply (for example by
+      # a module-level depends_on with pending changes) must not force replacement.
+      availability_domain,
       defined_tags["Oracle-Tags.CreatedBy"],
       defined_tags["Oracle-Tags.CreatedOn"]
     ]
