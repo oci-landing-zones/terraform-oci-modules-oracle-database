@@ -266,10 +266,13 @@ variable "cloud_vm_clusters_configuration" {
   validation {
     condition = alltrue(flatten([
       for vm in coalesce(var.cloud_vm_clusters_configuration, {}) : [
-        for timeout in vm.timeouts : timeout == null ? true : can(timeadd("2000-01-01T00:00:00Z", timeout))
+        # Conditionals, not && / ||, so the check also works on Terraform versions without short-circuit evaluation.
+        for timeout in vm.timeouts : timeout == null ? true : (
+          can(timeadd("2000-01-01T00:00:00Z", timeout)) ? timecmp(timeadd("2000-01-01T00:00:00Z", timeout), "2000-01-01T00:00:00Z") > 0 : false
+        )
       ]
     ]))
-    error_message = "Cloud VM Cluster timeouts must use valid duration strings such as 18h or 1h30m."
+    error_message = "Cloud VM Cluster timeouts must use positive duration strings such as 18h or 1h30m."
   }
 }
 
