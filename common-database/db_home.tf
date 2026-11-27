@@ -344,7 +344,10 @@ resource "oci_database_db_home" "these" {
       defined_tags["Oracle-Tags.CreatedBy"],
       defined_tags["Oracle-Tags.CreatedOn"],
       database.0.defined_tags["Oracle-Tags.CreatedBy"],
-      database.0.defined_tags["Oracle-Tags.CreatedOn"]
+      database.0.defined_tags["Oracle-Tags.CreatedOn"],
+      # Creation-time operation. The provider reads "NONE" for imported DB Homes,
+      # which would otherwise force replacement against the configured source.
+      source
     ]
   }
 }

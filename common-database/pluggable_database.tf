@@ -233,6 +233,10 @@ resource "oci_database_pluggable_database" "these" {
       defined_tags["Oracle-Tags.CreatedBy"],
       defined_tags["Oracle-Tags.CreatedOn"],
       pdb_admin_password,
+      # Creation-time clone/relocate inputs. The provider does not read them back
+      # and treats them as ForceNew, so a rotated Vault secret or an import would
+      # otherwise replace the PDB.
+      pdb_creation_type_details,
       should_create_pdb_backup,
       should_pdb_admin_account_be_locked,
       tde_wallet_password
