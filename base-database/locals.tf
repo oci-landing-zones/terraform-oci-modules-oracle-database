@@ -23,9 +23,9 @@ locals {
 
   additional_pdb_secret_ids = {
     for key, pdb in local.additional_pdbs : key => length(regexall("^ocid1\\.", pdb.pdb_admin_password_secret_id)) > 0 ? pdb.pdb_admin_password_secret_id : try(var.secrets_dependency[pdb.pdb_admin_password_secret_id].id, null)
-    if pdb.pdb_admin_password == null && pdb.pdb_admin_password_secret_id != null && (
-      length(regexall("^ocid1\\.", pdb.pdb_admin_password_secret_id)) > 0 || try(var.secrets_dependency[pdb.pdb_admin_password_secret_id].id, null) != null
-    )
+    if pdb.pdb_admin_password == null && pdb.pdb_admin_password_secret_id != null ? (
+      can(regex("^ocid1\\.", pdb.pdb_admin_password_secret_id)) || try(var.secrets_dependency[pdb.pdb_admin_password_secret_id].id, null) != null
+    ) : false
   }
 
   additional_pdb_admin_passwords = {

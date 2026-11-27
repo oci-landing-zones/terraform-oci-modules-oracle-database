@@ -89,7 +89,7 @@ variable "db_systems_configuration" {
   default = null
 
   validation {
-    condition     = var.db_systems_configuration == null || length(coalesce(var.db_systems_configuration.db_systems, {})) > 0
+    condition     = var.db_systems_configuration == null ? true : length(coalesce(var.db_systems_configuration.db_systems, {})) > 0
     error_message = "db_systems_configuration.db_systems must contain at least one DB System when db_systems_configuration is provided."
   }
 
@@ -129,7 +129,7 @@ variable "db_systems_configuration" {
           length(pdb.pdb_name) <= 30 &&
           can(regex("^[A-Za-z][A-Za-z0-9]*$", pdb.pdb_name)) &&
           upper(pdb.pdb_name) != upper(db_system.db_home.database.db_name) &&
-          (db_system.db_home.database.pdb_name == null || upper(pdb.pdb_name) != upper(db_system.db_home.database.pdb_name))
+          (db_system.db_home.database.pdb_name == null ? true : upper(pdb.pdb_name) != upper(db_system.db_home.database.pdb_name))
         )
       ])
     ])
@@ -175,7 +175,7 @@ variable "db_systems_configuration" {
   validation {
     condition = var.db_systems_configuration == null ? true : alltrue([
       for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) :
-      db_system.db_home.database.admin_password == null || (
+      db_system.db_home.database.admin_password == null ? true : (
         can(regex("^[A-Za-z0-9#_-]{9,30}$", db_system.db_home.database.admin_password)) &&
         length(regexall("[A-Z]", db_system.db_home.database.admin_password)) >= 2 &&
         length(regexall("[a-z]", db_system.db_home.database.admin_password)) >= 2 &&
@@ -213,9 +213,11 @@ variable "db_systems_configuration" {
   validation {
     condition = var.db_systems_configuration == null ? true : alltrue([
       for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) :
-      try(db_system.db_home.database.db_backup_config.backup_destination_details, null) == null || contains([
-        "AWS_S3", "DBRS", "LOCAL", "NFS", "OBJECT_STORE", "RECOVERY_APPLIANCE"
-      ], try(db_system.db_home.database.db_backup_config.backup_destination_details.type, null))
+      try(db_system.db_home.database.db_backup_config.backup_destination_details, null) == null ? true : (
+        try(db_system.db_home.database.db_backup_config.backup_destination_details.type, null) == null ? false : contains([
+          "AWS_S3", "DBRS", "LOCAL", "NFS", "OBJECT_STORE", "RECOVERY_APPLIANCE"
+        ], db_system.db_home.database.db_backup_config.backup_destination_details.type)
+      )
     ])
     error_message = "backup_destination_details.type is required and must be a supported backup destination type."
   }
@@ -254,7 +256,7 @@ variable "db_systems_configuration" {
 
   validation {
     condition = var.db_systems_configuration == null ? true : alltrue([
-      for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) : db_system.db_home.database.ncharacter_set == null || contains(["AL16UTF16", "UTF8"], db_system.db_home.database.ncharacter_set)
+      for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) : db_system.db_home.database.ncharacter_set == null ? true : contains(["AL16UTF16", "UTF8"], db_system.db_home.database.ncharacter_set)
     ])
     error_message = "ncharacter_set must be AL16UTF16 or UTF8."
   }
@@ -262,7 +264,7 @@ variable "db_systems_configuration" {
   validation {
     condition = var.db_systems_configuration == null ? true : alltrue([
       for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) : (
-        db_system.db_home.database.db_backup_config.auto_backup_window == null || contains([
+        db_system.db_home.database.db_backup_config.auto_backup_window == null ? true : contains([
           "SLOT_ONE", "SLOT_TWO", "SLOT_THREE", "SLOT_FOUR", "SLOT_FIVE", "SLOT_SIX",
           "SLOT_SEVEN", "SLOT_EIGHT", "SLOT_NINE", "SLOT_TEN", "SLOT_ELEVEN", "SLOT_TWELVE"
         ], db_system.db_home.database.db_backup_config.auto_backup_window)
@@ -274,7 +276,7 @@ variable "db_systems_configuration" {
   validation {
     condition = var.db_systems_configuration == null ? true : alltrue([
       for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) : (
-        db_system.db_home.database.db_backup_config.auto_full_backup_window == null || contains([
+        db_system.db_home.database.db_backup_config.auto_full_backup_window == null ? true : contains([
           "SLOT_ONE", "SLOT_TWO", "SLOT_THREE", "SLOT_FOUR", "SLOT_FIVE", "SLOT_SIX",
           "SLOT_SEVEN", "SLOT_EIGHT", "SLOT_NINE", "SLOT_TEN", "SLOT_ELEVEN", "SLOT_TWELVE"
         ], db_system.db_home.database.db_backup_config.auto_full_backup_window)
@@ -286,7 +288,7 @@ variable "db_systems_configuration" {
   validation {
     condition = var.db_systems_configuration == null ? true : alltrue([
       for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) : (
-        db_system.db_home.database.db_backup_config.auto_full_backup_day == null || contains([
+        db_system.db_home.database.db_backup_config.auto_full_backup_day == null ? true : contains([
           "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"
         ], db_system.db_home.database.db_backup_config.auto_full_backup_day)
       )
@@ -297,7 +299,7 @@ variable "db_systems_configuration" {
   validation {
     condition = var.db_systems_configuration == null ? true : alltrue([
       for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) : (
-        db_system.db_home.database.db_backup_config.backup_deletion_policy == null || contains([
+        db_system.db_home.database.db_backup_config.backup_deletion_policy == null ? true : contains([
           "DELETE_IMMEDIATELY", "DELETE_AFTER_RETENTION_PERIOD"
         ], db_system.db_home.database.db_backup_config.backup_deletion_policy)
       )
@@ -308,7 +310,7 @@ variable "db_systems_configuration" {
   validation {
     condition = var.db_systems_configuration == null ? true : alltrue([
       for key, db_system in coalesce(var.db_systems_configuration.db_systems, {}) : (
-        try(db_system.db_home.database.db_backup_config.backup_destination_details.backup_retention_policy_on_terminate, null) == null || contains([
+        try(db_system.db_home.database.db_backup_config.backup_destination_details.backup_retention_policy_on_terminate, null) == null ? true : contains([
           "RETAIN_PER_RETENTION_WINDOW", "RETAIN_FOR_72_HOURS"
         ], db_system.db_home.database.db_backup_config.backup_destination_details.backup_retention_policy_on_terminate)
       )

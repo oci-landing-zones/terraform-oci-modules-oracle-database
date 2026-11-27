@@ -91,7 +91,7 @@ resource "oci_database_db_system" "these" {
     }
 
     precondition {
-      condition     = try(local.db_systems[each.key].placement, null) == null || length(local.db_systems[each.key].placement.fault_domains) == 1
+      condition     = try(local.db_systems[each.key].placement, null) == null ? true : length(local.db_systems[each.key].placement.fault_domains) == 1
       error_message = "${each.key} must specify exactly one fault domain for node_count = 1."
     }
 
