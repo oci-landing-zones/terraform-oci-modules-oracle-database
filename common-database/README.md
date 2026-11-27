@@ -86,7 +86,7 @@ The module manages three optional configuration maps. Map keys identify resource
 
 ### <a name="database-homes">Database Homes</a>
 
-Each Database Home selects one target: `vm_cluster_id` for a Cloud VM Cluster or `db_system_id` for a DB System. The target can be a literal OCID or a key from `vm_cluster_dependency` or `db_system_dependency`. A Database Home cannot target both. `source` must match the target: `VM_CLUSTER_NEW` (default) or `VM_CLUSTER_BACKUP` with `vm_cluster_id`, and `NONE`, `DB_BACKUP`, or `DATABASE` with `db_system_id`. To restore a backup into a Cloud VM Cluster, use `VM_CLUSTER_BACKUP` with `database.backup_id` and `database.backup_tde_password`.
+Each Database Home selects one target: `vm_cluster_id` for a Cloud VM Cluster or `db_system_id` for a DB System. The target can be a literal OCID or a key from `vm_cluster_dependency` or `db_system_dependency`. A Database Home cannot target both. `source` must match the target: `VM_CLUSTER_NEW` (default) or `VM_CLUSTER_BACKUP` with `vm_cluster_id`, and `NONE`, `DB_BACKUP`, or `DATABASE` with `db_system_id`. To restore a backup into a Cloud VM Cluster, use `VM_CLUSTER_BACKUP`. Both `VM_CLUSTER_BACKUP` and `DB_BACKUP` need `database.backup_id`; set `database.backup_tde_password` when the backup requires it. Letter case in `source` does not matter.
 
 The legacy inline `cloud_db_homes_configuration[*].database` block is retained only for Exadata Database 1.1.0 upgrade compatibility. New CDB configurations must use `databases_configuration`.
 

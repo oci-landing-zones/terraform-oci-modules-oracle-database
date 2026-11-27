@@ -113,8 +113,11 @@ locals {
       db_system_id        = dbhome.db_system_id == null ? null : (can(regex("^ocid1\\.", dbhome.db_system_id)) ? dbhome.db_system_id : try(var.db_system_dependency[dbhome.db_system_id].id, null))
       kms_key_id          = can(regex("^ocid1\\.", dbhome.kms_key_id)) ? dbhome.kms_key_id : try(var.kms_dependency[dbhome.kms_key_id].id, null)
       source              = dbhome.source
-      defined_tags        = coalesce(try(dbhome.defined_tags, null), var.default_defined_tags)
-      freeform_tags       = coalesce(try(dbhome.freeform_tags, null), var.default_freeform_tags)
+      # The OCI provider accepts source in any letter case.
+      source_selector = upper(coalesce(dbhome.source, "VM_CLUSTER_NEW"))
+      has_backup_id   = anytrue([for database in values(merge({}, dbhome.database)) : try(length(trimspace(database.backup_id)) > 0, false)])
+      defined_tags    = coalesce(try(dbhome.defined_tags, null), var.default_defined_tags)
+      freeform_tags   = coalesce(try(dbhome.freeform_tags, null), var.default_freeform_tags)
     })
   }
 }
@@ -295,20 +298,25 @@ resource "oci_database_db_home" "these" {
     }
 
     precondition {
-      condition     = each.value.source != "VM_CLUSTER_NEW" ? true : (each.value.vm_cluster_id != null && can(regex("^ocid1\\.cloudvmcluster\\.", each.value.vm_cluster_id)))
+      condition     = each.value.source_selector != "VM_CLUSTER_NEW" ? true : (each.value.vm_cluster_id != null && can(regex("^ocid1\\.cloudvmcluster\\.", each.value.vm_cluster_id)))
       error_message = "vm_cluster_id must be a Cloud VM Cluster OCID or a key in vm_cluster_dependency."
     }
 
     # The OCI provider builds a DB System request for DB_BACKUP and a VM Cluster
     # request for VM_CLUSTER_BACKUP, so a backup restore needs the matching target.
     precondition {
-      condition     = each.value.source != "DB_BACKUP" ? true : each.value.db_system_id != null
+      condition     = each.value.source_selector != "DB_BACKUP" ? true : each.value.db_system_id != null
       error_message = "source = \"DB_BACKUP\" restores a backup into a DB System and needs db_system_id. To restore a backup into a Cloud VM Cluster, use source = \"VM_CLUSTER_BACKUP\" with vm_cluster_id."
     }
 
     precondition {
-      condition     = each.value.source != "VM_CLUSTER_BACKUP" ? true : (each.value.vm_cluster_id != null && can(regex("^ocid1\\.cloudvmcluster\\.", each.value.vm_cluster_id)))
+      condition     = each.value.source_selector != "VM_CLUSTER_BACKUP" ? true : (each.value.vm_cluster_id != null && can(regex("^ocid1\\.cloudvmcluster\\.", each.value.vm_cluster_id)))
       error_message = "source = \"VM_CLUSTER_BACKUP\" restores a backup into a Cloud VM Cluster and needs vm_cluster_id: a Cloud VM Cluster OCID or a key in vm_cluster_dependency."
+    }
+
+    precondition {
+      condition     = contains(["DB_BACKUP", "VM_CLUSTER_BACKUP"], each.value.source_selector) ? each.value.has_backup_id : true
+      error_message = "A DB Home with source = \"DB_BACKUP\" or \"VM_CLUSTER_BACKUP\" restores a database backup and needs database.<key>.backup_id."
     }
 
     precondition {
