@@ -8,7 +8,7 @@ output "cloud_exadata_infrastructures" {
 
 output "cloud_vm_clusters" {
   description = "The deployed Cloud VM Clusters in the OCI Database Service."
-  value       = var.enable_output ? oci_database_cloud_vm_cluster.these : null
+  value       = var.enable_output ? local.cloud_vm_clusters_deployed : null
 }
 
 output "database_homes" {
@@ -32,7 +32,7 @@ output "pluggable_databases" {
 locals {
   cloud_exadata_database_resources = {
     cloud_exadata_infrastructures = { for k, v in oci_database_cloud_exadata_infrastructure.these : k => { "id" : v.id, "compartment_id" : v.compartment_id } }
-    cloud_vm_clusters             = { for k, v in oci_database_cloud_vm_cluster.these : k => { "id" : v.id, "compartment_id" : v.compartment_id } }
+    cloud_vm_clusters             = { for k, v in local.cloud_vm_clusters_deployed : k => { "id" : v.id, "compartment_id" : v.compartment_id } }
     database_homes                = try(module.common_database.database_resources.database_homes, {})
     databases                     = try(module.common_database.database_resources.databases, {})
     pluggable_databases           = try(module.common_database.database_resources.pluggable_databases, {})

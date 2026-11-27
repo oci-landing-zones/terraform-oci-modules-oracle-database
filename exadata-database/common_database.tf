@@ -10,7 +10,7 @@ locals {
 
   common_database_vm_cluster_dependency = merge(
     coalesce(try(var.exadata_database_dependency.cloud_vm_clusters, null), {}),
-    { for key, vm_cluster in oci_database_cloud_vm_cluster.these : key => {
+    { for key, vm_cluster in local.cloud_vm_clusters_deployed : key => {
       id             = vm_cluster.id
       compartment_id = vm_cluster.compartment_id
     } }
