@@ -3,6 +3,6 @@
 
 locals {
   cislz_module_tag = {
-    "ocilz-terraform-module" = fileexists("${path.module}/../release.txt") ? "${var.module_name}/${file("${path.module}/../release.txt")}" : var.module_name
+    "ocilz-terraform-module" = fileexists("${path.module}/../release.txt") ? "${var.module_name}/${trimspace(file("${path.module}/../release.txt"))}" : var.module_name
   }
 }
