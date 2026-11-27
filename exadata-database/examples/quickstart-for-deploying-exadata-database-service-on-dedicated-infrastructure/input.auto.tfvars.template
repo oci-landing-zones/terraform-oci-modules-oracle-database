@@ -69,9 +69,6 @@ cloud_exadata_infrastructures_configuration = {
       customer_contacts = {
         email = "example2@oracle.com"
       }
-      customer_contacts = {
-        email = "example2@oracle.com"
-      }
       database_server_type = "X11M"
       maintenance_window = {
         preference                       = "CUSTOM_PREFERENCE"
@@ -82,7 +79,7 @@ cloud_exadata_infrastructures_configuration = {
         lead_time_in_weeks               = 2
         months                           = ["FEBRUARY", "MAY", "AUGUST", "NOVEMBER"]
         weeks_of_month                   = [1]
-        pathing_mode                     = "ROLLING"
+        patching_mode                    = "ROLLING"
       }
 
       storage_server_type = "X11M-HC"
@@ -161,7 +158,6 @@ cloud_db_homes_configuration = {
     vm_cluster_id  = "PROD-EXA1-CL01-KEY"   # can be key from vm_clusters map or direct OCID
     display_name   = "EXA-DB-HOME-1"
     db_version     = "19.0.0.0"
-    description    = "DB Home Config" # optional
 
     defined_tags                = {}                # optional
     freeform_tags               = { "env" = "dev" } # optional
