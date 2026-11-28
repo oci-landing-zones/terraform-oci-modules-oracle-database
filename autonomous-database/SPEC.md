@@ -17,7 +17,7 @@
 | Name | Source | Version |
 | ---- | ------ | ------- |
 | <a name="module_dynamic_groups"></a> [dynamic\_groups](#module\_dynamic\_groups) | github.com/oci-landing-zones/terraform-oci-modules-iam//dynamic-groups | v0.3.0 |
-| <a name="module_master_keys"></a> [master\_keys](#module\_master\_keys) | github.com/oci-landing-zones/terraform-oci-modules-security//vaults | v0.2.3 |
+| <a name="module_master_keys"></a> [master\_keys](#module\_master\_keys) | github.com/oci-landing-zones/terraform-oci-modules-security//vaults | v0.2.4 |
 | <a name="module_policies"></a> [policies](#module\_policies) | github.com/oci-landing-zones/terraform-oci-modules-iam//policies | v0.3.0 |
 
 ## Resources
@@ -43,7 +43,7 @@
 | <a name="input_network_dependency"></a> [network\_dependency](#input\_network\_dependency) | An object containing the externally managed network resources this module may depend on. Supported resources are 'subnets', and 'network\_security\_groups', represented as map of objects. Each object, when defined, must have an 'id' attribute of string type set with the subnet or NSG OCID. | <pre>object({<br/>    subnets = optional(map(object({<br/>      id = string # the subnet OCID<br/>    })))<br/>    network_security_groups = optional(map(object({<br/>      id = string # the NSG OCID<br/>    })))<br/>  })</pre> | `null` | no |
 | <a name="input_secrets_dependency"></a> [secrets\_dependency](#input\_secrets\_dependency) | A map of objects containing externally managed OCI secrets this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the secret OCID) of string type. | <pre>map(object({<br/>    id = string<br/>  }))</pre> | `null` | no |
 | <a name="input_tenancy_ocid"></a> [tenancy\_ocid](#input\_tenancy\_ocid) | The OCID of the tenancy where the Autonomous Database is created. | `string` | n/a | yes |
-| <a name="input_vaults_dependency"></a> [vaults\_dependency](#input\_vaults\_dependency) | A map of objects containing the externally managed vaults this module may depend on. All map objects must have the same type and must contain at least an 'id' attribute (representing the vault OCID) of string type. | <pre>map(object({<br/>    id = string # the vault OCID.<br/>  }))</pre> | `null` | no |
+| <a name="input_vaults_dependency"></a> [vaults\_dependency](#input\_vaults\_dependency) | A map of externally managed Vaults. Each entry requires the Vault OCID in 'id' and accepts an optional 'management\_endpoint'. Supplying the current endpoint as a value known during planning preserves the endpoint of a managed ADB TDE key when the Vault lookup is deferred. | <pre>map(object({<br/>    id                  = string           # the vault OCID.<br/>    management_endpoint = optional(string) # the vault management endpoint URL.<br/>  }))</pre> | `null` | no |
 
 ## Outputs
 

@@ -7,7 +7,7 @@ data "oci_kms_vault" "these" {
 
   lifecycle {
     postcondition {
-      condition     = try(var.vaults_dependency[local.tde_vault_id_inputs[each.key]].management_endpoint, null) == null ? true : self.management_endpoint == var.vaults_dependency[local.tde_vault_id_inputs[each.key]].management_endpoint
+      condition     = local.tde_vault_management_endpoints[each.key] == null ? true : self.management_endpoint == local.tde_vault_management_endpoints[each.key]
       error_message = "The management_endpoint in vaults_dependency for security.tde.existing_oci_vault_id must match the management endpoint of that Vault."
     }
     precondition {
@@ -32,39 +32,40 @@ data "oci_kms_key" "these" {
 
 locals {
 
-  # New TDE keys whose Vault is a key in vaults_dependency. The Vaults module
-  # receives that Vault as a dependency and the key references it by name, so the
-  # key's management endpoint (which forces replacement) comes from
-  # vaults_dependency instead of a lookup that a module-level depends_on can defer.
-  # Without management_endpoint in vaults_dependency, the lookup value is used.
-  tde_key_vault_inputs = {
-    for k, input in local.tde_vault_id_inputs : k => input
-    if local.db_configs[k].deploy_new_oci_encryption_key && contains(keys(data.oci_kms_vault.these), k) && (input == null ? false : (length(regexall("^ocid1\\.vault\\.", input)) == 0 && contains(var.vaults_dependency == null ? [] : keys(var.vaults_dependency), input)))
+  tde_vault_management_endpoints = {
+    for k, input in local.tde_vault_id_inputs : k => try(
+      length(regexall("^ocid1\\.vault\\.", input)) == 0 ? var.vaults_dependency[input].management_endpoint : null,
+      null
+    )
+  }
+
+  # Keep the dependency keys known even when a Vault OCID or endpoint is only
+  # available at apply. The Vaults module uses these keys in for_each.
+  tde_key_databases = {
+    for k, v in local.db_configs : k => v
+    if v.deploy_new_oci_encryption_key && contains(keys(data.oci_kms_vault.these), k)
   }
   tde_key_vaults_dependency = {
-    for k, input in local.tde_key_vault_inputs : "${k}-VAULT" => {
+    for k in keys(local.tde_key_databases) : "${k}-VAULT" => {
       vault_id            = local.tde_vault_ids[k]
-      management_endpoint = try(var.vaults_dependency[input].management_endpoint, null) != null ? var.vaults_dependency[input].management_endpoint : data.oci_kms_vault.these[k].management_endpoint
+      management_endpoint = local.tde_vault_management_endpoints[k] == null ? data.oci_kms_vault.these[k].management_endpoint : local.tde_vault_management_endpoints[k]
     }
   }
 
   vaults_configuration = {
     default_compartment_id = null
-    keys = { for k, v in local.db_configs : "${k}-KEY" => {
+    keys = { for k, v in local.tde_key_databases : "${k}-KEY" => {
       name                      = "${v.db_name}-key"
-      vault_id                  = contains(keys(local.tde_key_vault_inputs), k) ? null : data.oci_kms_vault.these[k].vault_id
-      vault_management_endpoint = contains(keys(local.tde_key_vault_inputs), k) ? "${k}-VAULT" : null
+      vault_management_endpoint = "${k}-VAULT"
       compartment_id            = v.compartment_id
-    } if v.deploy_new_oci_encryption_key && contains(keys(data.oci_kms_vault.these), k) }
+    } }
   }
 
   dynamic_groups_configuration = {
     dynamic_groups = { for k, v in local.db_configs : "${k}-DYNAMIC-GROUP" => {
       name        = "${v.db_name}-dynamic-group",
       description = "Dynamic group for ${v.db_name} accessing Key Management service (aka Vault service).",
-      # Preserve the 1.1.0 rule so an in-place 1.1.0-to-1.2.0 upgrade does
-      # not modify an existing dynamic group. A tighter rule can be made an
-      # explicit future change.
+      # The compartment-wide rule preserves membership for groups created with 1.1.0.
       matching_rule = "ALL {resource.compartment.id = '${v.compartment_id}'}"
     } if v.deploy_iam_policy_and_dyn_group_for_encryption_key }
   }
