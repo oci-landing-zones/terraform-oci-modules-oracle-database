@@ -13,27 +13,24 @@
 ## <a name="overview">Overview</a>
 This repository contains Terraform OCI (Oracle Cloud Infrastructure) modules for deploying and managing Database services on OCI.
 
-Modules included in this repository:
-1. Exadata Database Services. [See more details](./exadata-database/README.md)
-2. Common Database resources (Database Homes, container databases, and pluggable databases). [See more details](./common-database/README.md)
-3. Autonomous Database Services. [See more details](./autonomous-database/README.md)
-4. Autonomous Recovery Service. [See more details](./autonomous-recovery-service/README.md)
-5. Base Database Service. [See more details](./base-database/README.md)
+Choose the module that owns the resources you want to manage.
 
+1. [Exadata Database](./exadata-database/README.md) manages Exadata infrastructure, Cloud VM Clusters, DB Homes, CDBs, and PDBs. It can also use existing infrastructure or clusters.
+2. [Common Database](./common-database/README.md) manages DB Homes, CDBs, and PDBs independently of the host infrastructure.
+3. [Autonomous Database](./autonomous-database/README.md) provisions Serverless databases and Dedicated databases in an existing Autonomous Container Database.
+4. [Autonomous Recovery Service](./autonomous-recovery-service/README.md)
+5. [Base Database Service](./base-database/README.md)
+
+For an existing deployment, review the [1.3.1 upgrade instructions](./RELEASE-NOTES.md#upgrading-to-131) before changing the module version or enabling external CPU management.
 
 ## <a name="modules-collection">OCI Landing Zones Modules Collection</a>
 This repository is part of a broader collection of repositories containing modules that help customers align their OCI implementations with the CIS OCI Foundations Benchmark recommendations:
-- [Exadata & Autonomous Database](https://github.com/oci-landing-zones/terraform-oci-modules-exadata) - current repository
 - [Identity & Access Management](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-iam)
 - [Networking](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-networking)
 - [Governance](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-governance)
 - [Security](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-security)
 - [Observability & Monitoring](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-observability)
 - [Secure Workloads](https://github.com/oracle-quickstart/terraform-oci-secure-workloads)
-
-The modules in this collection are designed for flexibility, are straightforward to use, and enforce CIS OCI Foundations Benchmark recommendations when possible.
-
-Using these modules does not require a user extensive knowledge of Terraform or OCI resource types usage. Users declare a JSON object describing the OCI resources according to each module’s specification and minimal Terraform code to invoke the modules. The modules generate outputs that can be consumed by other modules as inputs, allowing for the creation of independently managed operational stacks to automate your entire OCI infrastructure.
 
 ## Contributing
 
@@ -47,10 +44,9 @@ Please consult the [security guide](./SECURITY.md) for our responsible security 
 
 Copyright (c) 2025 Oracle and/or its affiliates.
 
-*Replace this statement if your project is not licensed under the UPL*
-
 Released under the Universal Permissive License v1.0 as shown at
 <https://oss.oracle.com/licenses/upl/>.
 
 ## Known Issues
-None.
+
+See the [release notes](./RELEASE-NOTES.md) for upgrade guidance and known limitations.

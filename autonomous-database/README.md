@@ -114,7 +114,7 @@ The databases themselves are defined within the **databases** attribute. In Terr
 - **display_name**: (Optional) The database display name. It defaults to *db_name* if undefined.
 - **db_name**: The database name.
 - **db_workload**: (Optional) The workload type ("OLTP", "DW", "AJD", "APEX"). Default is "OLTP".
-- **db_version**: (Optional) The database version. Default is "26ai".
+- **db_version**: (Optional) The Serverless database version defaults to `26ai`. Dedicated databases use the version of their Autonomous Container Database.
 - **db_edition**: (Optional) The database edition ("ENTERPRISE_EDITION","STANDARD_EDITION").
 - **is_dedicated**: (Optional) Indicates whether the database is provisioned on a Dedicated Exadata Infrastructure. Set to false for Autonomous Database Shared/Serverless. Default is true.
 - **autonomous_container_db_id**: (Optional) The Autonomous Container Database in which to provision this Autonomous Database. Only applicable and required when *is_dedicated* is true. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *databases_dependency* variable. The OCI Landing Zones Orchestrator integration expects a literal Autonomous Container Database OCID in this release.
@@ -122,15 +122,15 @@ The databases themselves are defined within the **databases** attribute. In Terr
 - **dw_storage_size_in_tbs**: (Optional) The storage size in Terabytes for workloads of type "DW". Default is 1.
 - **non_dw_storage_size_in_gbs**: (Optional) The storage size in Gigabytes for workloads other than "DW". Default is 32. For "DW" workloads, use *dw_storage_size_in_tbs*.
 - **admin_password**: (Optional) Literal database administrator password. The module marks the value as sensitive.
-- **admin_password_secret_id**: (Optional) OCI Vault secret OCID or *secrets_dependency* key containing the database administrator password. The module reads the current secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting value as sensitive.
+- **admin_password_secret_id**: (Optional) OCI Vault secret OCID or *secrets_dependency* key containing the database administrator password. Store the password as nonempty UTF-8 text in the secret. The module reads the `CURRENT` version, decodes the Base64 payload returned by OCI, and marks the password as sensitive.
 
 Define exactly one of **admin_password** or **admin_password_secret_id** for each Autonomous Database. An empty literal is treated as absent.
 
 Prefer **admin_password_secret_id** to avoid committing a literal password to Git and to centralize password rotation and audit activity in OCI Vault. Regardless of the source, Terraform retrieves the password and stores it in the Terraform state file. Treat the state as sensitive data and protect it with an encrypted backend and appropriately restricted access.
 
-- **is_free_tier**: (Optional) Indicates whether the database is an Always Free resource. Always Free Autonomous Databases have 1 CPU and 20GB of memory. Memory and CPU cannot be scaled. Default is false.
+- **is_free_tier**: (Optional) Indicates whether the database is an Always Free resource. Default is false.
 - **is_dev_tier**: (Optional) Indicates whether the database is for developer to build and test applications. Developer databases come with limited resources and is not intended for large-scale testing and production deployments. Default is false.
-- **license_model**: (Optional) The license model ("LICENSE_INCLUDED", "BRING_YOUR_OWN_LICENSE"). Default is "LICENSE_INCLUDED".
+- **license_model**: (Optional) For Serverless, choose `LICENSE_INCLUDED` (default) or `BRING_YOUR_OWN_LICENSE`. The module omits this setting for Dedicated databases.
 - **enable_cpu_auto_scaling**: (Optional) Whether CPU auto scaling is enabled. Default is true.
 - **enable_storage_auto_scaling**: (Optional) Whether storage auto scaling is enabled. Default is false. Only applicable for serverless, not applicable for dedicated.
 - **character_set**: (Optional) The database character set. Default is "AL32UTF8". 
@@ -144,9 +144,9 @@ Prefer **admin_password_secret_id** to avoid committing a literal password to Gi
     - **network_security_groups**: (Optional) List of NSGs for the database. Only applicable when *enable_private_endpoint* is true. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *network_dependency* variable. Only applicable for Serverless, not applicable for Dedicated.
 - **security**: (Optional) The database security settings. Only applicable for Serverless, not applicable for Dedicated. When using ADB-D, this is determined by the Autonomous Container Database.
     - **tde**: (Optional) Transparent Data Encryption settings. 
-      - **deploy_iam_policy_and_dyn_group_for_encryption_key**: (Optional) Whether to deploy an IAM policy and dynamic group for allowing the database to read an encryption key for transparent data encryption. Default value is *true*.
+      - **deploy_iam_policy_and_dyn_group_for_encryption_key**: (Optional) When `security.tde` is configured for Serverless, this defaults to `true`. The module creates a dynamic group whose membership rule matches resource principals in the database compartment and a policy granting that group access to the configured Vault and key. Set the flag to `false` when existing IAM rules already grant the required access.
       - **existing_oci_vault_id**(Optional): The OCI vault holding the encryption key. Required if defining tde. This attribute is overloaded and can be assigned either a literal OCID or a reference (a key) to an OCID in *vaults_dependency* variable. For 1.1.0 upgrade compatibility only, vault OCIDs stored in *kms_dependency* are accepted as a deprecated fallback when no *vaults_dependency* match exists.
-      - **deploy_new_oci_encryption_key**: (Optional) Whether to deploy a new encryption key in the referenced Vault. Default value is *true*. The Vault OCID can be known only after apply when the ADB configuration keys and the key deployment flag are known during planning. When the module call has a module-level `depends_on` (as in the Orchestrator) and that dependency has pending changes, Vault lookups run only at apply. If *existing_oci_vault_id* is a key in *vaults_dependency* whose entry includes *management_endpoint*, the key keeps that endpoint during planning and is not replaced. If the Vault is a literal OCID, or its entry has no *management_endpoint*, the endpoint comes from the lookup and Terraform can plan to replace an existing key. Review any planned replacement of `oci_kms_key` before applying: destroying the key schedules its deletion, and data encrypted with a key pending deletion becomes inaccessible.
+      - **deploy_new_oci_encryption_key**: (Optional) Whether to deploy a new encryption key in the referenced Vault. Default value is *true*. The Vault OCID can remain unknown until apply when the ADB configuration keys and the key deployment flag are known during planning. For an existing module-managed key, use a `vaults_dependency` entry with the current Vault OCID and management endpoint as described below.
       - **existing_oci_encryption_key_id**: (Optional) The existing encryption key id. Required when *deploy_new_oci_encryption_key* is *false* and *deploy_iam_policy_and_dyn_group_for_encryption_key* is *true*. When using an existing key, Vault and key OCIDs can remain unknown until apply.
     - **zpr_attributes**: (Optional) List of objects representing ZPR attributes. Only applicable when *enable_private_endpoint* is true.
         - **namespace**: (Optional) ZPR namespace. Default is *oracle-zpr*, a default namespace created by Oracle and available in all tenancies.
@@ -157,14 +157,14 @@ Prefer **admin_password_secret_id** to avoid committing a literal password to Gi
 - **freeform_tags**: (Optional) Database freeform tags.
 
 ### <a name="ext-dep">External Dependencies</a>
-An optional feature, external dependencies are resources managed elsewhere that resources managed by this module may depend on. The following dependencies are supported:
+Use the following inputs to reference existing resources. Replace values in angle brackets with the OCIDs or endpoint from your tenancy.
 - **compartments_dependency**: A map of objects containing externally managed compartments. All map objects must have the same type and must contain at least an *id* attribute with the compartment OCID.
 
 Example:
-```
+```json
 {
   "DATABASE-CMP": {
-    "id": "ocid1.compartment.oc1..aaaaaaaa...7xq"
+    "id": "<compartment-ocid>"
   }
 }
 ```
@@ -173,16 +173,16 @@ Example:
   - An *id* attribute with the network security group OCID.
 
 Example:
-```
+```json
 {
   "subnets": {
     "DATABASE-SUBNET": {
-      "id": "ocid1.subnet.oc1.iad.aaaaaaaax...e7a"
+      "id": "<subnet-ocid>"
     }
   },
   "network_security_groups": {
     "DATABASE-NSG": {
-      "id": "ocid1.networksecuritygroup.oc1.iad.aaaaaaaa...xlq"
+      "id": "<network-security-group-ocid>"
     }
   }
 }
@@ -194,54 +194,57 @@ Example:
 ```hcl
 secrets_dependency = {
   "ADB-PASSWORD" = {
-    id = "ocid1.vaultsecret.oc1..example"
+    id = "<vault-secret-ocid>"
   }
 }
 ```
 
-- **vaults_dependency**: A map of objects containing externally managed vaults. All map objects must have the same type and must contain at least an *id* attribute with the vault OCID. Use this dependency for *security.tde.existing_oci_vault_id*. The optional *management_endpoint* attribute holds the Vault management endpoint. It keeps the plan for a new TDE key in that Vault independent of the Vault lookup, and planning fails if it does not match the Vault. The legacy 1.1.0 pattern of storing vault OCIDs in *kms_dependency* is deprecated and kept only as a temporary upgrade fallback.
+- **vaults_dependency**: A map of objects containing externally managed vaults. Each object requires an *id* attribute with the Vault OCID and accepts an optional *management_endpoint*. Use the map key as *security.tde.existing_oci_vault_id*. For an existing module-managed TDE key, supplying the current Vault management endpoint as a value known during planning prevents replacement caused by a deferred Vault lookup. Terraform checks that the endpoint matches the Vault when it reads the Vault, which can be during plan or apply. The legacy 1.1.0 pattern of storing vault OCIDs in *kms_dependency* is deprecated and kept only as a temporary upgrade fallback.
+
+When a module-level `depends_on` has pending changes, as in the Orchestrator, Terraform can defer the Vault lookup until apply. A direct Vault OCID or a dependency entry with an endpoint unknown during planning can still lead to replacement of an existing key. Before applying an upgrade, check that the plan has no `oci_kms_key` deletion or replacement. If it does, use the same Vault OCID and its management endpoint from OCI in a `vaults_dependency` entry and re-plan. Destroying a key schedules its deletion and makes data encrypted with it inaccessible. [OCI Vault documentation](https://docs.oracle.com/en-us/iaas/Content/KeyManagement/Tasks/managingkeys_topic-To_delete_a_key.htm)
 
 Example:
-```
+```json
 {
   "DATABASE-VAULT": {
-    "id": "ocid1.vault.oc1.iad.abuwcl...yna"
+    "id": "<vault-ocid>",
+    "management_endpoint": "<vault-management-endpoint>"
   }
 }
 ```
 - **kms_dependency**: A map of objects containing externally managed encryption keys. All map objects must have the same type and must contain at least an *id* attribute with the encryption key OCID.
 
 Example:
-```
+```json
 {
   "DATABASE-KEY": {
-    "id": "ocid1.key.oc1.iad.ejsppeqvaafyi.abuwcl...yna"
+    "id": "<encryption-key-ocid>"
   }
 }
 ```
 - **databases_dependency**: An object containing the externally managed database resources this module may depend on. Supported resources are 'container_databases', represented as map of objects. Each object, when defined, must have an 'id' attribute of string type set with container database OCID.
 
 Example:
-```
+```json
 {
   "container_databases": {
     "CDB1": {
-      "id": "ocid1.autonomouscontainerdatabase.oc1.me-riyadh-1....d4a"
+      "id": "<autonomous-container-database-ocid>"
     }
-  },
+  }
 }
 ```
 
 ## Outputs
 
-The module keeps the `autonomous_databases` output for backward compatibility and also publishes `autonomous_database_resources` for downstream dependency consumption. The dependency output contains the minimal Autonomous Database map currently managed by this module:
+Use `autonomous_databases_resources` to pass database details to another Terraform stack. The map uses the database keys from your configuration. For example:
 
-```
+```json
 {
   "autonomous_databases": {
     "<database-key>": {
-      "id": "ocid1.autonomousdatabase.oc1...",
-      "compartment_id": "ocid1.compartment.oc1...",
+      "id": "<autonomous-database-ocid>",
+      "compartment_id": "<compartment-ocid>",
       "display_name": "<display-name>",
       "db_workload": "OLTP",
       "ecpu_count": 2
@@ -250,18 +253,14 @@ The module keeps the `autonomous_databases` output for backward compatibility an
 }
 ```
 
-The `autonomous_databases_resources` output is intentionally scoped to Autonomous Databases. The singular `autonomous_database_resources` output is an alias for integrations that still read the singular Autonomous Database output name. Additional Autonomous Database resources can be added to this output when the module starts managing them.
-
-The `autonomous_databases_dependency` output exposes the same minimal shape as `autonomous_databases_resources` for OCI Landing Zones Orchestrator releases that consume the module-owned dependency output directly instead of falling back to raw resource outputs.
+The outputs `autonomous_database_resources` and `autonomous_databases_dependency` return the same map. Existing callers using `autonomous_databases` can keep that output. It returns `ocid`, `display_name`, `db_workload`, and `ecpu_count` for each database.
 
 When consumed through OCI Landing Zones Orchestrator or RMS Facade release 2.1.2, this map is persisted in the generated Autonomous Databases output file under the `autonomous_databases` top-level key.
-
-
 
 ## <a name="related">Related Documentation</a>
 - [Autonomous Database](https://docs.oracle.com/en-us/iaas/Content/Database/Concepts/adboverview.htm)
 
 ## <a name="issues">Known Issues</a>
-No issues.
+A deferred Vault lookup can cause Terraform to propose replacing an existing managed TDE key. For the required Vault dependency and management endpoint, see [Upgrading to 1.3.1](../RELEASE-NOTES.md#upgrading-to-131).
 
 For more details, refer to the [OCI Autonomous Database documentation](https://docs.oracle.com/en-us/iaas/Content/Database/Tasks/adbmanaging.htm).

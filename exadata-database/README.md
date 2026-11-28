@@ -3,7 +3,7 @@
 
 This module manages Exadata Database Service resources on OCI Dedicated Infrastructure. It can create Cloud Exadata Infrastructure and Cloud VM Clusters, or manage DB Homes, CDBs, and PDBs on externally managed VM Clusters.
 
-Check [module specification](./SPEC.md) for the complete typed contract, managed resources, and outputs. Check the [examples](./examples/) folder for module usage.
+See the [module specification](./SPEC.md) for input types, resources, and outputs. The [examples](./examples/) show how to configure a deployment.
 
 - [Features](#features)
 - [Requirements](#requirements)
@@ -30,7 +30,7 @@ The module supports:
 - Database Home
 - Container Database
 - Pluggable Database
-- Dependency handoff for Exadata infrastructure, VM Clusters, DB Homes, CDBs, and PDBs.
+- Reference existing Exadata infrastructure, VM Clusters, DB Homes, CDBs, and PDBs from another stack.
 - Direct management of DB Homes, CDBs, and PDBs on externally managed VM Clusters.
 - Database passwords supplied as sensitive literals or retrieved from OCI Vault secrets.
 
@@ -48,17 +48,14 @@ module "exadata_database" {
 }
 ```
 
-This module supports being passed an object containing references to OCIDs (Oracle Cloud IDs) that they may depend on. Every input attribute that expects an OCID (typically, attribute names ending in _id or _ids) can be given either a literal OCID or a reference (a key) to the OCID. While these OCIDs can be literally obtained from their sources and pasted when setting the modules input attributes, a superior approach is automatically consuming the outputs of producing modules. For instance, the Exadata Infrastructure module may depend on compartments and networks for deployment. It can be passed a compartments_dependency map and a network_dependency map with objects representing compartments and networks produced by other modules. The external dependency approach helps with the creation of loosely coupled Terraform configurations with clearly defined dependencies between them, avoiding copying and pasting OCIDs.
+For inputs that support dependency keys, you can supply the resource OCID directly or use the key from the producing stack. For example, a VM Cluster can use a client subnet key from `network_dependency.subnets`. Check the description of each input before substituting a key for an OCID. See [External Dependencies](#external-dependencies).
 
 ## <a name="requirements">Requirements</a>
 
 Before deploying the Exadata Cloud Infrastructure, VM Cluster, Database Home, Database, and PDB resources, ensure the following prerequisites are met:
 
-- [**IAM Policies**](https://docs.oracle.com/en-us/iaas/exadatacloud/doc/ecs-policy-details.html)  
-  Ensure you have access to an active OCI Tenancy with sufficient permissions to create networking and database resources.
-
-- [**Create RSA keys**](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/tutorials/tf-provider.htm#prepare)  
-  Follow [this guide](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/tutorials/tf-provider.htm#prepare) to Create RSA keys.
+- The Terraform principal needs permissions for the database resources it manages and access to any existing network resources and password secrets referenced in the configuration. See [Exadata IAM policies](https://docs.oracle.com/en-us/iaas/exadatacloud/doc/ecs-policy-details.html).
+- When authenticating with an OCI API key, configure the provider with the registered key fingerprint and the path to the matching private key. For a new VM Cluster, supply the **public SSH key** for access to the database servers in `ssh_public_keys`. See [OCI provider authentication](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/tutorials/tf-provider.htm#prepare).
 
 - [**Virtual Cloud Network (VCN)**](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/create_vcn.htm#top)  
   A VCN must be created in the target region where the Exadata Infrastructure will reside. 
@@ -74,7 +71,7 @@ Before deploying the Exadata Cloud Infrastructure, VM Cluster, Database Home, Da
      Follow the [VCN creation guide](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/create_vcn.htm#top) to manually create the network components.
 
 - [**Subnets**](https://docs.oracle.com/en-us/iaas/Content/Network/Tasks/create_subnet.htm#top)  
-  You must have at least two subnets available for Exadata infrastructure and VM clusters:
+  When creating a Cloud VM Cluster, supply its client subnet and backup subnet:
   - **Client Subnet:** For database client connections  
   - **Backup Subnet:** For Object Storage and backup operations  
 
@@ -157,7 +154,12 @@ For more details on this resource, please see OCI Terraform Documentation for [o
 
 
 ### <a name="cloud-vm-clusters">Cloud VM Clusters</a>
+
+Before enabling ODyS on an existing Terraform-managed cluster, **check that the module source used by your stack selects Exadata 1.3.1**. Orchestrator v2.4.1 pins Exadata to `release-1.2.0`, which ignores the flag and can reset CPU to the configured value. Set `ignore_cpu_changes = true` and add the cluster's root `moved` block in the same plan. If ODyS has already resized the cluster, an intermediate apply with Terraform still managing CPU can undo that resize. [Migration examples](#external-cpu-management) · [Orchestrator v2.4.1 module source](https://github.com/oci-landing-zones/terraform-oci-modules-orchestrator/blob/v2.4.1/workloads.tf#L71)
+
 - cloud_vm_clusters_configuration: OCI Database Cloud Exadata VM Cluster Configuration. This is a map of VM cluster configurations.
+
+When adapting the examples, check that the specified GI and system image versions are available in the target region. For examples with a cloud automation freeze period, supply the start and end dates for the intended window. OCI limits the window to 45 days. [OCI VM Cluster documentation](https://docs.oracle.com/en-us/iaas/exadatacloud/doc/manage-vm-clusters.html)
 
 Each Cloud VM cluster configuration object has the following attributes:
 - backup_subnet_id: Backup subnet ID of the VM cluster.
@@ -195,7 +197,7 @@ backup_network_nsg_ids: Backup network NSG IDs of the VM cluster.
 - subscription_id: Subscription ID of the VM cluster.
 - system_version: System version of the VM cluster.
 - time_zone: Time zone of the VM cluster.
-- timeouts: Optional object with `create`, `update`, and `delete` operation timeouts. Use positive duration strings such as `"18h"` or `"1h30m"`. Omitted values use the OCI provider defaults, currently 12 hours for each operation ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_cloud_vm_cluster_resource.go)).
+- timeouts: Optional object with `create`, `update`, and `delete` operation timeouts. Each duration must be at least `1s`. Examples include `"18h"` and `"1h30m"`. Omitted values use the OCI provider defaults. OCI provider 9.15.0 sets 12 hours for each operation ([provider source](https://github.com/oracle/terraform-provider-oci/blob/v9.15.0/internal/service/database/database_cloud_vm_cluster_resource.go)).
 - vm_cluster_type: VM cluster type.
 
 Timeouts control how long Terraform waits for OCI. A stalled work request still needs to be investigated in OCI.
@@ -210,9 +212,11 @@ For compatibility, the module does not manage later changes to:
 
 Freeform tags remain managed by Terraform. This VM Cluster tag behavior is retained from 1.1.0.
 
+#### External CPU management
+
 With `ignore_cpu_changes` omitted, `null`, or `false`, upgrading this module retains the existing `oci_database_cloud_vm_cluster.these` resource addresses and CPU management. When `true`, both CPU inputs still supply creation values, but subsequent CPU changes are ignored, including edits to these inputs in Terraform configuration. Other attributes retain their existing management rules. Outputs keep the same logical cluster keys and publish the observed CPU values after refresh. This option does not install or configure ODyS.
 
-Clusters with `ignore_cpu_changes = true` use `oci_database_cloud_vm_cluster.these_ignore_cpu_changes`. New clusters need no migration. For an existing cluster, set the flag and add a per-cluster `moved` block in the root configuration in the same change. Otherwise Terraform plans to destroy the old resource and create a new one, potentially replacing dependent DB Homes and databases.
+New clusters with `ignore_cpu_changes = true` start at `oci_database_cloud_vm_cluster.these_ignore_cpu_changes`. For an existing cluster, use its deployed module path and cluster key in one of the following root `moved` blocks.
 
 For a direct module call named `exadata_database`:
 
@@ -241,11 +245,11 @@ moved {
 }
 ```
 
-Replace the module path and key with the deployed resource address, and ensure the caller uses a module version containing this option. The flag belongs in each VM Cluster's configuration; `moved` blocks belong in root Terraform configuration, not in JSON/YAML workload inputs. Use one block for each existing cluster being switched. Keep the block until every workspace that uses the root has applied the move. A forward `moved` block only works where that cluster key has `ignore_cpu_changes = true`. In a workspace that still declares the key with the flag off, Terraform rejects the block with `Moved object still exists`. Use separate roots, or different cluster keys, when workspaces need different settings for the same key.
+If you can edit only JSON or YAML workload inputs, leave the flag off for an existing cluster until you can add its `moved` block to the root Terraform configuration. Without the move, Terraform plans to destroy the old cluster and create a new one. It can also replace dependent DB Homes, CDBs, and PDBs.
 
-If the root configuration cannot be changed, for example when the flag would be set only through JSON or YAML workload inputs, do not enable `ignore_cpu_changes` on an existing cluster. Without the `moved` block, Terraform plans to destroy the cluster and every DB Home, CDB, and PDB on it.
+Keep each `moved` block until every workspace using that root has applied the move. A forward `moved` block only works where that cluster key has `ignore_cpu_changes = true`. In a workspace that still declares the key with the flag off, Terraform rejects the block with `Moved object still exists`. Use separate roots, or different cluster keys, when workspaces need different settings for the same key.
 
-Review the plan before applying. It should show the expected address move, preserve resource IDs, and show zero destruction or replacement of the cluster, DB Homes, CDBs, and PDBs. If it proposes replacing any of them, stop and correct the migration before applying.
+Run `terraform plan` with refresh enabled. Verify that the old address moves to the new address with the same cluster OCID and the CPU allocation OCI reports. **Stop if the plan proposes resizing, deleting, or replacing the cluster, or deleting or replacing a dependent DB Home, CDB, or PDB.**
 
 To return CPU management to Terraform, set the flag to `false` and use the inverse `moved` block in place of the forward block once the forward migration has completed in every workspace using that configuration. Terraform can then propose reconciling CPU to the configured values. To transfer ownership without resizing, first set those values to match the cluster's current allocation and review the plan.
 
@@ -271,7 +275,7 @@ Each DB Home object has the following attributes:
 - source: How the DB Home is created on its Cloud VM Cluster. Use `VM_CLUSTER_NEW` (default) to create a new database, or `VM_CLUSTER_BACKUP` to restore the database backup in `database.backup_id`. `NONE`, `DB_BACKUP`, and `DATABASE` create a DB Home on a DB System and need `db_system_id`. Both `VM_CLUSTER_BACKUP` and `DB_BACKUP` need `database.backup_id`; set `database.backup_tde_password` when the backup requires it. Letter case does not matter. `source` is used only when the DB Home is created and is ignored afterwards. The OCI provider reads an imported DB Home as `NONE`, so an import no longer plans a replacement because of the default `VM_CLUSTER_NEW`.
 - vm_cluster_id: The OCID or key of the VM cluster.
 
-New Container Databases are created with `databases_configuration`, referencing the DB Home by key or OCID. This standalone contract is the supported path for new same-stack and multi-stack deployments.
+To create a CDB, add an entry to `databases_configuration` and reference its DB Home by configuration key or OCID. The DB Home can belong to the same stack or a separate stack.
 
 ### Updating from 1.1.0
 
@@ -306,7 +310,7 @@ The module does not manage later changes to `db_home_id`, `db_version`, or those
 
 `source` selects the creation operation and is ignored after creation. The OCI provider cannot reconstruct it from a read, so a missing `source` in imported state no longer causes a replacement by itself. Other inputs still follow their OCI provider lifecycle rules. For example, adding a `backup_id` absent from the imported state can still require replacement. To adopt an existing CDB without requesting a restore or standby, use `source = "NONE"` and review the full import plan before applying.
 
-With OCI provider 9.15.0, changing `kms_key_id`, `kms_key_version_id`, or `database.vault_id` of an existing CDB in Terraform plans a CDB replacement. See Known limitations in the [release notes](../RELEASE-NOTES.md), and change CDB encryption keys outside Terraform. Then set those inputs to the values OCI reports, and confirm that the plan does not replace the CDB.
+With OCI provider 9.15.0, changing `kms_key_id`, `kms_key_version_id`, or `database.vault_id` of an existing CDB in Terraform plans a CDB replacement. If you need to rotate the key, use the OCI procedure for your database, update these inputs to the values OCI reports, and review a fresh plan. Stop if the plan proposes replacing the CDB. See [Known limitations](../RELEASE-NOTES.md#known-limitations).
 
 OCI tag defaults can add tenancy-specific defined tags when a CDB is created. To manage one of those tags with Terraform, declare its key and value in `default_defined_tags` or `database.defined_tags`. Direct module callers that intentionally do not want Terraform to manage a particular tag can add its fully qualified key to the OCI provider's `ignore_defined_tags` setting:
 
@@ -345,7 +349,7 @@ Each PDB Configuration object has the following attributes:
 
 ### <a name="password-secrets">Password Secrets</a>
 
-Every password consumed by the DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. The Common Database child module reads the `CURRENT` secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting password as sensitive before passing it to the OCI provider; the Exadata wrapper only passes the configuration and dependency map through unchanged.
+Every password consumed by the DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. Store the password as nonempty UTF-8 text in the secret. The Common Database child module reads the `CURRENT` version, decodes the Base64 payload returned by OCI, and passes the password to the provider as a sensitive value.
 
 The supported pairs cover legacy inline CDB administration, backup TDE, encryption HSM, and TDE wallet passwords; standalone CDB administration, backup TDE, Data Guard administration, backup-destination VPC, encryption HSM, source TDE wallet, source-encryption HSM, and TDE wallet passwords; and PDB container administration, PDB administration, database-link, source-container administration, and TDE wallet passwords. In each case, append `_secret_id` to the literal password attribute name.
 
@@ -385,17 +389,13 @@ The canonical Cloud Exadata Database dependency output is `cloud_exadata_databas
 ## <a name="related">Related Documentation</a>
 This repository is part of a broader collection of repositories containing modules that help customers deploy and manage various OCI resources:
 
-- [Exadata](https://github.com/oci-landing-zones/terraform-oci-modules-exadata) - current repository
+- [Database modules in this repository](../README.md)
 - [Identity & Access Management](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-iam)
 - [Networking](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-networking)
 - [Governance](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-governance)
 - [Security](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-security)
 - [Observability & Monitoring](https://github.com/oracle-quickstart/terraform-oci-cis-landing-zone-observability)
 - [Secure Workloads](https://github.com/oracle-quickstart/terraform-oci-secure-workloads)
-
-The modules in this collection are designed for flexibility, are straightforward to use, and follow best practices.
-
-Using these modules does not require a user extensive knowledge of Terraform or OCI resource types usage. Users declare a JSON object describing the OCI resources according to each module’s specification and minimal Terraform code to invoke the modules. The modules generate outputs that can be consumed by other modules as inputs, allowing for the creation of independently managed operational stacks to automate your entire OCI infrastructure.
 
 ## <a name="contributing">Contributing</a>
 See [CONTRIBUTING.md](../CONTRIBUTING.md).
@@ -408,6 +408,7 @@ Licensed under the Universal Permissive License v 1.0 as shown at https://oss.or
 See [LICENSE](../LICENSE.txt) for more details.
 
 ## <a name="known-issues">Known Issues</a>
-1.  The PDB creation might fail if the DB creation is in progress. solution: run "terraform apply" again and it will resume from where it left off.
-2. When creating multiple Database Homes. in the same VM Cluster, this error may occur. "The operation cannot be performed because the Db System with ID ocid1... is in the UPDATING state." solution: run "terraform apply" again and it will resume from where it left off.
-3. Each resource may take several hours to provision, so the terraform apply session may last 10+ hours. If terraform apply gets interrupted due to VPN disconnecting or other issues, run "terraform apply" again and it will resume from where it left off.
+
+OCI can reject a PDB create while its CDB is provisioning, or a DB Home create while another operation is updating the same VM Cluster. Check the work request in OCI and wait for the parent resource to return to `AVAILABLE` before planning the remaining changes.
+
+If an apply is interrupted, first confirm that the original Terraform run has ended and check which operations completed in OCI. Generate a fresh plan with refresh enabled. If it proposes creating an object that already exists, or replacing or deleting a resource you intend to keep, stop and reconcile the discrepancy before applying.

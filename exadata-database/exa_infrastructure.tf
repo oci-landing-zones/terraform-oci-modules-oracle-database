@@ -1,10 +1,6 @@
 # Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
-# https://registry.terraform.io/providers/oracle/oci/latest/docs/data-sources/identity_availability_domains
-
-# NOTE!!! Note that the order of the results returned can change if availability domains are added or removed; 
-# therefore, do not create a dependency on the list order.
 locals {
   cloud_exadata_infrastructures = {
     for infra_key, infra in coalesce(try(var.cloud_exadata_infrastructures_configuration.cloud_exadata_infrastructures, null), {}) :
@@ -44,6 +40,7 @@ resource "oci_database_cloud_exadata_infrastructure" "these" {
   display_name   = each.value.display_name
   shape          = each.value.shape
   compartment_id = each.value.compartment_id
+  # With no explicit domain, creation uses the first name in sorted order.
   availability_domain = each.value.availability_domain != null ? each.value.availability_domain : (
     try(sort([for ad in data.oci_identity_availability_domains.ads[each.key].availability_domains : ad.name])[0], null)
   )

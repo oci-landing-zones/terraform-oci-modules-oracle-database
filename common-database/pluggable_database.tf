@@ -133,8 +133,7 @@ locals {
 }
 
 resource "oci_database_pluggable_database" "these" {
-  # Match the ARS pattern: establish resource identity from the original
-  # configuration and resolve sensitive passwords in resource attributes.
+  # Use configuration keys for resource addresses. Resolve sensitive passwords per instance.
   for_each = merge({}, var.pluggable_databases_configuration)
   #Required
   container_database_id = local.pluggable_databases[each.key].container_database_id

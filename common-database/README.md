@@ -6,7 +6,7 @@ This module manages OCI Database Homes, Container Databases (CDBs), and Pluggabl
 
 Resource references accept literal OCIDs or logical keys resolved through dependency inputs. The module can target either a Cloud VM Cluster or a DB System; each DB Home must select exactly one target.
 
-Check [module specification](./SPEC.md) for the complete typed contract, managed resources, and outputs. Check the [examples](./examples/) folder for module usage.
+See the [module specification](./SPEC.md) for input types, resources, and outputs. The [examples](./examples/) show how to configure a deployment.
 
 - [Features](#features)
 - [Requirements](#requirements)
@@ -98,7 +98,7 @@ Each `databases_configuration` entry creates a standalone CDB. Its `db_home_id` 
 
 `source` selects the creation operation and is ignored after creation. The OCI provider cannot reconstruct it from a read, so a missing `source` in imported state no longer causes a replacement by itself. Other inputs still follow their OCI provider lifecycle rules. For example, adding a `backup_id` absent from the imported state can still require replacement. To adopt an existing CDB without requesting a restore or standby, use `source = "NONE"` and review the full import plan before applying.
 
-With OCI provider 9.15.0, changing `kms_key_id`, `kms_key_version_id`, or `database.vault_id` of an existing CDB in Terraform plans a CDB replacement. See Known limitations in the [release notes](../RELEASE-NOTES.md), and change CDB encryption keys outside Terraform. Then set those inputs to the values OCI reports, and confirm that the plan does not replace the CDB.
+With OCI provider 9.15.0, changing `kms_key_id`, `kms_key_version_id`, or `database.vault_id` of an existing CDB in Terraform plans a CDB replacement. If you need to rotate the key, use the OCI procedure for your database, update these inputs to the values OCI reports, and review a fresh plan. Stop if the plan proposes replacing the CDB. See [Known limitations](../RELEASE-NOTES.md#known-limitations).
 
 `database.admin_password`, `database.backup_tde_password`, `database.source_tde_wallet_password`, and `database.tde_wallet_password` are sensitive creation-time values. In particular, `backup_tde_password` is used only for a `DB_BACKUP` restore and is not reapplied later. The module does not manage later CDB DB Home changes, which allows an out-of-place DB Home patch to remain in place. The OCI provenance tags `Oracle-Tags.CreatedBy` and `Oracle-Tags.CreatedOn` are ignored; customer-defined and freeform tags remain managed.
 
@@ -114,7 +114,7 @@ Each `pluggable_databases_configuration` entry creates a PDB. Its `container_dat
 
 ### <a name="password-secrets">Password Secrets</a>
 
-Every password consumed by the managed DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. The module reads the `CURRENT` secret version, requires nonempty valid Base64 content, decodes it, and marks the resulting password as sensitive before passing it to the OCI provider.
+Every password consumed by the managed DB Home, CDB, and PDB resources has a matching `*_secret_id` attribute. A secret reference accepts either an OCI Vault secret OCID or a key from `secrets_dependency`. Store the password as nonempty UTF-8 text in the secret. The module reads the `CURRENT` version, decodes the Base64 payload returned by OCI, and passes the password to the provider as a sensitive value.
 
 The supported pairs cover legacy inline CDB administration, backup TDE, encryption HSM, and TDE wallet passwords; standalone CDB administration, backup TDE, Data Guard administration, backup-destination VPC, encryption HSM, source TDE wallet, source-encryption HSM, and TDE wallet passwords; and PDB container administration, PDB administration, database-link, source-container administration, and TDE wallet passwords. In each case, append `_secret_id` to the literal password attribute name.
 
@@ -163,7 +163,7 @@ Use `database_resources` or `database_dependency` from a producing Common Databa
 When `enable_output` is `true` (the default), the module returns:
 
 - `database_homes`, `databases`, and `pluggable_databases`: sensitive raw resource maps.
-- `database_resources`: minimal ID-only maps for dependency handoff.
+- `database_resources`: resource IDs grouped by resource type and configuration key.
 - `database_dependency`: alias of `database_resources` for downstream consumption.
 
 Setting `enable_output` to `false` sets the outputs to `null`.
@@ -175,4 +175,4 @@ Setting `enable_output` to `false` sets the outputs to `null`.
 
 ## <a name="issues">Known Issues</a>
 
-No known issues.
+Changing the customer-managed key or Vault of an existing standalone CDB can cause Terraform to replace it. See the [release notes](../RELEASE-NOTES.md#known-limitations).

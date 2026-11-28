@@ -256,8 +256,7 @@ locals {
 # Note: When specifying pdb_name in the 'database' block, Oracle will create the initial PDB along with the CDB.
 # The admin_password must conform to the strong policy and is reused for SYS/SYSTEM and the default PDB Admin password.
 resource "oci_database_database" "these" {
-  # Match the ARS pattern: establish resource identity from the original
-  # configuration and resolve sensitive passwords in resource attributes.
+  # Use configuration keys for resource addresses. Resolve sensitive passwords per instance.
   for_each = merge({}, var.databases_configuration)
 
   #Required
