@@ -1,29 +1,18 @@
-# OCI Landing Zones Exadata Module Example - Additional DB Homes with Multiple Container Databases and Pluggable Databases
+# Add a DB Home to an existing Cloud VM Cluster
 
-## Introduction
-This example shows how to deploy Exadata resources in Oracle Cloud Infrastructure (OCI). 
+Supply the existing cluster OCID. The plan should add one DB Home and two CDBs on that cluster. Each CDB includes its initial PDB and has one additional PDB managed separately. A new infrastructure or VM Cluster is unexpected.
 
-It deploys the following resources:
-- Database Home in an existing VM cluster
-  - Container Database-1
-    - Pluggable Database-1
-    - Pluggable Database-2
-  - Container Database-2
-    - Pluggable Database-3
-    - Pluggable Database-4
-
-See [input.auto.tfvars.template](./input.auto.tfvars.template) for resource configuration.
-See [Module's README.md](../../README.md) for overall attributes usage.
+See the [input template](./input.auto.tfvars.template) and the [module configuration reference](../../SPEC.md).
 
 ## Using this example
-1. Rename *input.auto.tfvars.template* to *\<project-name\>.auto.tfvars*, where *\<project-name\>* is any name of your choice. 
-2. Within *\<project-name\>.auto.tfvars*, provide tenancy connectivity information and adjust the input variables marked with *<REPLACE-WITH-...>*.
 
-   Follow [this guide](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/tutorials/tf-provider.htm#prepare) to gather required information.
+1. Copy `input.auto.tfvars.template` to `input.auto.tfvars` in this directory.
+2. Set the tenancy OCID, region, and authentication values in your copy. Uncomment the corresponding assignments if needed. Replace the resource placeholders with values for your deployment. The Terraform principal needs read access to the current password secret versions. See [OCI provider authentication](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/tutorials/tf-provider.htm#prepare).
+3. From this directory, generate a plan and compare it with the resources described above.
 
-3. In this folder, run the typical Terraform workflow:
-```
-terraform init
-terraform plan -out plan.out
-terraform apply plan.out
-```
+   ```shell
+   terraform init
+   terraform plan -out=plan.out
+   ```
+
+4. If the proposed actions and target resources are correct, apply the reviewed plan with `terraform apply plan.out`. Restrict access to saved plans and state files, which can contain credentials.

@@ -4,21 +4,21 @@
 
 #--------------------------------------------------------------------------------------------------------------------------------------
 # This Example is for creating Exadata Cloud Infrastructure, Multiple VM Clusters using different VCNs with multiple Database Homes with Multiple Container Databases (CDBs) and Pluggable Databases (PDBs) 
-# 1. Rename this file to <project-name>.auto.tfvars, where <project-name> is a name of your choice.
+# 1. Copy this template to input.auto.tfvars.
 # 2. Provide values for "Tenancy Connectivity Variables".
-# 3. Replace <REPLACE-BY-*> placeholders with appropriate values.
+# 3. Replace <REPLACE-WITH-...> placeholders with appropriate values.
 #--------------------------------------------------------------------------------------------------------------------------------------
 
 #---------------------------------------
 # Tenancy Connectivity Variables
 #---------------------------------------
 
-tenancy_ocid         = "<REPLACE-WITH-TENANCY-OCID>" # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "Tenancy: <your tenancy name>").
-user_ocid            = "<REPLACE-WITH-USER-OCID>"    # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "My profile").
-fingerprint          = "<REPLACE-WITH-FINGERPRINT>"   # The fingerprint can be gathered from your user account. In the "My profile page, click "API keys" on the menu in left hand side.
-private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"  # This is the full path on your local system to the API signing private key.
-private_key_password = ""                                  # This is the password that protects the private key, if any.
-region               = "<REPLACE-WITH-REGION>"             # The region name.
+tenancy_ocid         = "<REPLACE-WITH-TENANCY-OCID>"  # OCI tenancy OCID.
+user_ocid            = "<REPLACE-WITH-USER-OCID>"  # OCID of the user who registered the API key.
+fingerprint          = "<REPLACE-WITH-FINGERPRINT>"  # Fingerprint of the registered API key.
+private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"  # Local path to the matching API signing private key.
+private_key_password = ""  # Passphrase if the private key is encrypted.
+region               = "<REPLACE-WITH-REGION>"  # OCI region identifier.
 
 #---------------------------------------
 # Input variable
@@ -128,7 +128,7 @@ cloud_exadata_infrastructures_configuration = {
 cloud_vm_clusters_configuration = {
 
   # ----------------------------
-  # This is to create the first VM Cluster 
+  # Create the first VM Cluster
   # ----------------------------
 
   MY-VM-CLUSTER-1 = {
@@ -164,21 +164,19 @@ cloud_vm_clusters_configuration = {
     license_model   = "LICENSE_INCLUDED"
 
     # ---- optional extras ----
-    is_local_backup_enabled = true
-    time_zone               = "UTC"
+    time_zone = "UTC"
 
     # ================================
     # Automation update Details
     # ================================
     cloud_automation_update_details = {
-      #Optional
       apply_update_time_preference = {
         apply_update_preferred_end_time   = "06:00"
         apply_update_preferred_start_time = "00:00"
       }
       freeze_period = {
-        freeze_period_end_time   = "2025-10-05"
-        freeze_period_start_time = "2025-10-01"
+        freeze_period_end_time   = "<REPLACE-WITH-FREEZE-END-DATE>"
+        freeze_period_start_time = "<REPLACE-WITH-FREEZE-START-DATE>"
       }
       is_early_adoption_enabled = false
       is_freeze_period_enabled  = true
@@ -209,7 +207,7 @@ cloud_vm_clusters_configuration = {
   }
 
   # ----------------------------
-  # This is to create the second VM Cluster using a different VCN 
+  # Create the second VM Cluster using a different VCN
   # ----------------------------
 
   MY-VM-CLUSTER-2 = {
@@ -245,21 +243,19 @@ cloud_vm_clusters_configuration = {
     license_model   = "LICENSE_INCLUDED"
 
     # ---- optional extras ----
-    is_local_backup_enabled = true
-    time_zone               = "UTC"
+    time_zone = "UTC"
 
     # ================================
     # Automation update Details
     # ================================
     cloud_automation_update_details = {
-      #Optional
       apply_update_time_preference = {
         apply_update_preferred_end_time   = "06:00"
         apply_update_preferred_start_time = "00:00"
       }
       freeze_period = {
-        freeze_period_end_time   = "2025-10-05"
-        freeze_period_start_time = "2025-10-01"
+        freeze_period_end_time   = "<REPLACE-WITH-FREEZE-END-DATE>"
+        freeze_period_start_time = "<REPLACE-WITH-FREEZE-START-DATE>"
       }
       is_early_adoption_enabled = false
       is_freeze_period_enabled  = true
@@ -295,9 +291,9 @@ cloud_vm_clusters_configuration = {
 cloud_db_homes_configuration = {
   "DB-HOME-1" = {
     # ----------------------------
-    # This is to create the first Database Home in VM Cluster1 
+    # Create the first Database Home in VM Cluster1
     # ----------------------------
-    vm_cluster_id = "MY-VM-CLUSTER-1" # required if source = VM_CLUSTER_NEW, replace with the OCID of VM Cluster1
+    vm_cluster_id = "MY-VM-CLUSTER-1" # Key of the VM Cluster defined above.
     display_name  = "MyDBHome1"
     db_version    = "19.0.0.0"
     defined_tags  = {}                # optional
@@ -306,9 +302,9 @@ cloud_db_homes_configuration = {
 
   "DB-HOME-2" = {
     # ----------------------------
-    # This is to create the second Database Home in VM Cluster1 
+    # Create the second Database Home in VM Cluster1
     # ----------------------------
-    vm_cluster_id = "MY-VM-CLUSTER-1" # required if source = VM_CLUSTER_NEW, replace with the OCID of VM Cluster1
+    vm_cluster_id = "MY-VM-CLUSTER-1" # Key of the VM Cluster defined above.
     display_name  = "MyDBHome2"
     db_version    = "19.0.0.0"
     source        = "VM_CLUSTER_NEW"  # optional (default = VM_CLUSTER_NEW)
@@ -321,33 +317,30 @@ cloud_db_homes_configuration = {
 # ---------------------------------------
 # This is to create multiple Container Database(s) and Pluggable Database(s)
 # ---------------------------------------
-# The strong admin_password below satisfies the policy defined in variables.tf:
+# The password stored in each referenced Vault secret must satisfy the module password policy:
 # - Length 9-30, at least 2 uppercase, 2 lowercase, 2 digits, 2 special chars from _, #, -
 # - Only allowed characters, and must not contain 'oracle' (or reverse), 'sys', 'system', 'metsys'
 databases_configuration = {
 
   # ----------------------------
-  # This is to create the CDB1 and PDB1A in DBHome1 
+  # Create the CDB1 and PDB1A in DBHome1
   # ----------------------------
   CDB1 = {
-    #Required
     source     = "NONE"
     db_home_id = "DB-HOME-1" # References the DB Home defined above (or a DB Home OCID)
     database = {
-      # Required
       admin_password_secret_id = "CDB1-ADMIN-PASSWORD"
       db_name                  = "CDB1"
 
-      #optional
       character_set = "AL32UTF8"
       db_backup_config = {
         auto_backup_enabled     = "true"
-        auto_backup_window      = "SLOT_ONE" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
-        auto_full_backup_day    = "SUNDAY"   #<<If no option is selected, the value is null and we will default to Sunday.>>
-        auto_full_backup_window = "SLOT_TWO" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
+        auto_backup_window      = "SLOT_ONE"
+        auto_full_backup_day    = "SUNDAY"
+        auto_full_backup_window = "SLOT_TWO"
         backup_deletion_policy  = "DELETE_AFTER_RETENTION_PERIOD"
 
-        recovery_window_in_days   = "35" #<<recoveryWindow cannot have value for Backup destination as Database Recovery System.>
+        recovery_window_in_days   = "35"  # Omit when using a Recovery Service protection policy.
         run_immediate_full_backup = "false"
       }
       db_unique_name = "CDB1_vp_fra"
@@ -357,7 +350,7 @@ databases_configuration = {
       ncharacter_set = "AL16UTF16" #The default is AL16UTF16. Allowed values are: AL16UTF16 or UTF8.
 
       # Create initial PDB during CDB creation
-      pdb_name            = "PDB1A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
+      pdb_name            = "PDB1A"
       sid_prefix          = "cdb1"
       tde_wallet_password_secret_id = "CDB1-TDE-WALLET-PASSWORD"
     }
@@ -365,27 +358,24 @@ databases_configuration = {
 
   CDB2 = {
     # ----------------------------
-    # This is to create the CDB2 and PDB2A in DBHome1 
+    # Create the CDB2 and PDB2A in DBHome1
     # ----------------------------
-    #Required
     source     = "NONE"
     db_home_id = "DB-HOME-1" # References the DB Home defined above (or a DB Home OCID)
     database = {
-      # Required
       admin_password_secret_id = "CDB2-ADMIN-PASSWORD"
       db_name                  = "CDB2"
 
-      #optional
       character_set = "AL32UTF8"
 
       db_backup_config = {
         auto_backup_enabled     = "true"
-        auto_backup_window      = "SLOT_ONE" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
-        auto_full_backup_day    = "SUNDAY"   #<<If no option is selected, the value is null and we will default to Sunday.>>
-        auto_full_backup_window = "SLOT_TWO" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
+        auto_backup_window      = "SLOT_ONE"
+        auto_full_backup_day    = "SUNDAY"
+        auto_full_backup_window = "SLOT_TWO"
         backup_deletion_policy  = "DELETE_AFTER_RETENTION_PERIOD"
 
-        recovery_window_in_days   = "35" #<<recoveryWindow cannot have value for Backup destination as Database Recovery System.>
+        recovery_window_in_days   = "35"  # Omit when using a Recovery Service protection policy.
         run_immediate_full_backup = "false"
       }
       db_unique_name = "CDB2_vp_fra"
@@ -396,7 +386,7 @@ databases_configuration = {
       ncharacter_set = "AL16UTF16" #The default is AL16UTF16. Allowed values are: AL16UTF16 or UTF8.
 
       # Create initial PDB during CDB creation
-      pdb_name            = "PDB2A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
+      pdb_name            = "PDB2A"
       sid_prefix          = "cdb2"
       tde_wallet_password_secret_id = "CDB2-TDE-WALLET-PASSWORD"
     }
@@ -404,25 +394,22 @@ databases_configuration = {
 
   CDB3 = {
     # ----------------------------
-    # This is to create the CDB3 and PDB3A in DBHome2 
+    # Create the CDB3 and PDB3A in DBHome2
     # ----------------------------
-    #Required
     source     = "NONE"
     db_home_id = "DB-HOME-2" # References the DB Home defined above (or a DB Home OCID)
     database = {
-      # Required
       admin_password_secret_id = "CDB3-ADMIN-PASSWORD"
       db_name                  = "CDB3"
 
-      #optional
       character_set = "AL32UTF8"
       db_backup_config = {
         auto_backup_enabled       = "true"
-        auto_backup_window        = "SLOT_ONE" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
-        auto_full_backup_day      = "SUNDAY"   #<<If no option is selected, the value is null and we will default to Sunday.>>
-        auto_full_backup_window   = "SLOT_TWO" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
+        auto_backup_window        = "SLOT_ONE"
+        auto_full_backup_day      = "SUNDAY"
+        auto_full_backup_window   = "SLOT_TWO"
         backup_deletion_policy    = "DELETE_AFTER_RETENTION_PERIOD"
-        recovery_window_in_days   = "35" #<<recoveryWindow cannot have value for Backup destination as Database Recovery System.>
+        recovery_window_in_days   = "35"  # Omit when using a Recovery Service protection policy.
         run_immediate_full_backup = "false"
       }
       db_unique_name = "CDB3_vp_fra"
@@ -433,7 +420,7 @@ databases_configuration = {
       ncharacter_set = "AL16UTF16" #The default is AL16UTF16. Allowed values are: AL16UTF16 or UTF8.
 
       # Create initial PDB during CDB creation
-      pdb_name            = "PDB3A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
+      pdb_name            = "PDB3A"
       sid_prefix          = "cdb3"
       tde_wallet_password_secret_id = "CDB3-TDE-WALLET-PASSWORD"
     }
@@ -441,26 +428,23 @@ databases_configuration = {
 
   CDB4 = {
     # ----------------------------
-    # This is to create the CDB4 and PDB4A in DBHome2 
+    # Create the CDB4 and PDB4A in DBHome2
     # ----------------------------
-    #Required
     source     = "NONE"
     db_home_id = "DB-HOME-2" # References the DB Home defined above (or a DB Home OCID)
     database = {
-      # Required
       admin_password_secret_id = "CDB4-ADMIN-PASSWORD"
       db_name                  = "CDB4"
 
-      #optional
       character_set = "AL32UTF8"
       db_backup_config = {
         auto_backup_enabled     = "true"
-        auto_backup_window      = "SLOT_ONE" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
-        auto_full_backup_day    = "SUNDAY"   #<<If no option is selected, the value is null and we will default to Sunday.>>
-        auto_full_backup_window = "SLOT_TWO" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
+        auto_backup_window      = "SLOT_ONE"
+        auto_full_backup_day    = "SUNDAY"
+        auto_full_backup_window = "SLOT_TWO"
         backup_deletion_policy  = "DELETE_AFTER_RETENTION_PERIOD"
 
-        recovery_window_in_days   = "35" #<<recoveryWindow cannot have value for Backup destination as Database Recovery System.>
+        recovery_window_in_days   = "35"  # Omit when using a Recovery Service protection policy.
         run_immediate_full_backup = "false"
       }
       db_unique_name = "CDB4_vp_fra"
@@ -471,7 +455,7 @@ databases_configuration = {
       ncharacter_set = "AL16UTF16" #The default is AL16UTF16. Allowed values are: AL16UTF16 or UTF8.
 
       # Create initial PDB during CDB creation
-      pdb_name            = "PDB4A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
+      pdb_name            = "PDB4A"
       sid_prefix          = "cdb4"
       tde_wallet_password_secret_id = "CDB4-TDE-WALLET-PASSWORD"
     }
@@ -486,11 +470,11 @@ databases_configuration = {
 pluggable_databases_configuration = {
 
   # ---------------------------------------
-  # the is to create additional PDB(s) in CDB1
+  # Additional PDBs in CDB1
   # ---------------------------------------
   PDB1B = {
-    container_database_id = "CDB1"  #<<Name or OCID>>
-    pdb_name              = "PDB1B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
+    container_database_id = "CDB1"  # CDB configuration key.
+    pdb_name              = "PDB1B"
     pdb_admin_password_secret_id = "PDB1B-ADMIN-PASSWORD"
 
     should_create_pdb_backup           = "false"
@@ -499,11 +483,11 @@ pluggable_databases_configuration = {
   }
 
   # ---------------------------------------
-  # the is to create additional PDB(s) in CDB2
+  # Additional PDBs in CDB2
   # ---------------------------------------
   PDB2B = {
-    container_database_id = "CDB2"  #<<Name or OCID>>
-    pdb_name              = "PDB2B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
+    container_database_id = "CDB2"  # CDB configuration key.
+    pdb_name              = "PDB2B"
     pdb_admin_password_secret_id = "PDB2B-ADMIN-PASSWORD"
 
     should_create_pdb_backup           = "false"
@@ -512,11 +496,11 @@ pluggable_databases_configuration = {
   }
 
   # ---------------------------------------
-  # the is to create additional PDB(s) in CDB3
+  # Additional PDBs in CDB3
   # ---------------------------------------
   PDB3B = {
-    container_database_id = "CDB3"  #<<Name or OCID>>
-    pdb_name              = "PDB3B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
+    container_database_id = "CDB3"  # CDB configuration key.
+    pdb_name              = "PDB3B"
     pdb_admin_password_secret_id = "PDB3B-ADMIN-PASSWORD"
 
     should_create_pdb_backup           = "false"
@@ -525,11 +509,11 @@ pluggable_databases_configuration = {
   }
 
   # ---------------------------------------
-  # the is to create additional PDB(s) in CDB4
+  # Additional PDBs in CDB4
   # ---------------------------------------
   PDB4B = {
-    container_database_id = "CDB4"  #<<Name or OCID>>
-    pdb_name              = "PDB4B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
+    container_database_id = "CDB4"  # CDB configuration key.
+    pdb_name              = "PDB4B"
     pdb_admin_password_secret_id = "PDB4B-ADMIN-PASSWORD"
 
     should_create_pdb_backup           = "false"

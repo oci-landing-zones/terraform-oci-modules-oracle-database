@@ -32,19 +32,16 @@ variable "default_compartment_id" {
 }
 variable "default_defined_tags" { default = null }
 variable "default_freeform_tags" { default = null }
-# Enable DM HOME creation in the example
 variable "cloud_db_homes_configuration" {
   description = "DB homes to be created."
   type        = any
   default     = null
 }
-# Enable CDB+PDB creation in the example
 variable "databases_configuration" {
   description = "Databases (CDB + initial PDB) to create for this example. Keys are arbitrary unique names."
   type        = any
   default     = null
 }
-# Enable CDB+PDB creation in the example
 variable "pluggable_databases_configuration" {
   description = "Additional pluggable databases to create for this example."
   type        = any

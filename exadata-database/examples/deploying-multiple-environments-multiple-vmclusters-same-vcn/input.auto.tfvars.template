@@ -3,21 +3,21 @@
 
 
 #--------------------------------------------------------------------------------------------------------------------------------------
-# 1. Rename this file to <project-name>.auto.tfvars, where <project-name> is a name of your choice.
+# 1. Copy this template to input.auto.tfvars.
 # 2. Provide values for "Tenancy Connectivity Variables".
-# 3. Replace <REPLACE-BY-*> placeholders with appropriate values.
+# 3. Replace <REPLACE-WITH-...> placeholders with appropriate values.
 #--------------------------------------------------------------------------------------------------------------------------------------
 
 #---------------------------------------
 # Tenancy Connectivity Variables
 #---------------------------------------
 
-tenancy_ocid         = "<REPLACE-WITH-TENANCY-OCID>" # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "Tenancy: <your tenancy name>").
-user_ocid            = "<REPLACE-WITH-USER-OCID>"    # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "My profile").
-fingerprint          = "<REPLACE-WITH-FINGERPRINT>"   # The fingerprint can be gathered from your user account. In the "My profile page, click "API keys" on the menu in left hand side.
-private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"  # This is the full path on your local system to the API signing private key.
-private_key_password = ""                                  # This is the password that protects the private key, if any.
-region               = "<REPLACE-WITH-REGION>"             # The region name.
+tenancy_ocid         = "<REPLACE-WITH-TENANCY-OCID>"  # OCI tenancy OCID.
+user_ocid            = "<REPLACE-WITH-USER-OCID>"  # OCID of the user who registered the API key.
+fingerprint          = "<REPLACE-WITH-FINGERPRINT>"  # Fingerprint of the registered API key.
+private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"  # Local path to the matching API signing private key.
+private_key_password = ""  # Passphrase if the private key is encrypted.
+region               = "<REPLACE-WITH-REGION>"  # OCI region identifier.
 
 #---------------------------------------
 # Input variable
@@ -87,7 +87,7 @@ cloud_exadata_infrastructures_configuration = {
 cloud_vm_clusters_configuration = {
 
   # ----------------------------
-  # This is to create the first VM Cluster 
+  # Create the first VM Cluster
   # ----------------------------
 
   MY-VM-CLUSTER-1 = {
@@ -123,21 +123,19 @@ cloud_vm_clusters_configuration = {
     license_model   = "LICENSE_INCLUDED"
 
     # ---- optional extras ----
-    is_local_backup_enabled = true
-    time_zone               = "UTC"
+    time_zone = "UTC"
 
     # ================================
     # Automation update Details
     # ================================
     cloud_automation_update_details = {
-      #Optional
       apply_update_time_preference = {
         apply_update_preferred_end_time   = "06:00"
         apply_update_preferred_start_time = "00:00"
       }
       freeze_period = {
-        freeze_period_end_time   = "2025-10-05"
-        freeze_period_start_time = "2025-10-01"
+        freeze_period_end_time   = "<REPLACE-WITH-FREEZE-END-DATE>"
+        freeze_period_start_time = "<REPLACE-WITH-FREEZE-START-DATE>"
       }
       is_early_adoption_enabled = false
       is_freeze_period_enabled  = true
@@ -168,7 +166,7 @@ cloud_vm_clusters_configuration = {
   }
 
   # ----------------------------
-  # This is to create the second VM Cluster using a different VCN 
+  # The second VM Cluster uses a separate subnet pair in the same VCN.
   # ----------------------------
 
   MY-VM-CLUSTER-2 = {
@@ -178,8 +176,8 @@ cloud_vm_clusters_configuration = {
     db_servers                = ["ALL"]
 
     # ---- networking----
-    subnet_id              = "EXA-SUBNET-KEY-2"        ## "ocid1.subnet.oc1.." replace with client subnet OCID from VCN2
-    backup_subnet_id       = "EXA-BACKUP-SUBNET-KEY-2" ## "ocid1.subnet.oc1.." replace with backup subnet OCID from VCN2
+    subnet_id              = "EXA-SUBNET-KEY-2"        ## "ocid1.subnet.oc1.." replace with client subnet OCID from the same VCN
+    backup_subnet_id       = "EXA-BACKUP-SUBNET-KEY-2" ## "ocid1.subnet.oc1.." replace with backup subnet OCID from the same VCN
     nsg_ids                = ["NSG-EXA-CLIENT-KEY-2"]
     backup_network_nsg_ids = ["NSG-EXA-BACKUP-KEY-2"]
 
@@ -204,21 +202,19 @@ cloud_vm_clusters_configuration = {
     license_model   = "LICENSE_INCLUDED"
 
     # ---- optional extras ----
-    is_local_backup_enabled = true
-    time_zone               = "UTC"
+    time_zone = "UTC"
 
     # ================================
     # Automation update Details
     # ================================
     cloud_automation_update_details = {
-      #Optional
       apply_update_time_preference = {
         apply_update_preferred_end_time   = "06:00"
         apply_update_preferred_start_time = "00:00"
       }
       freeze_period = {
-        freeze_period_end_time   = "2025-10-05"
-        freeze_period_start_time = "2025-10-01"
+        freeze_period_end_time   = "<REPLACE-WITH-FREEZE-END-DATE>"
+        freeze_period_start_time = "<REPLACE-WITH-FREEZE-START-DATE>"
       }
       is_early_adoption_enabled = false
       is_freeze_period_enabled  = true

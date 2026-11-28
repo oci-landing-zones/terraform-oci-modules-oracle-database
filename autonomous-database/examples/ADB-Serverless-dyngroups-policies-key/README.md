@@ -1,31 +1,22 @@
-# OCI Landing Zones Autonomous Database Example - Autonomous Database Serverless with Dynamic Group, Policies, and KMS Key
+# Deploy a Serverless Autonomous Database with a new encryption key
 
-## Introduction
-This is an example of deploying an Autonomous Database Serverless with a custom non-Core Landing Zone setup.
+Supply an existing OCI Vault in `vaults_dependency` for the new TDE key. The plan should create one Serverless database, a KMS key in your Vault, a dynamic group, and its policy.
 
-Prerequisites that need to be manually configured:
-1. A vault named *\<service-label\>-vault*
+Supply the administrator password secret OCID in `secrets_dependency`. The principal running Terraform must be able to read its current version.
 
-## Resources Deployed
-This example deploys the following resources:
-1. An Autonomous Database Serverless instance.
-2. A dynamic group named *\<db_name\>-dynamic-group*.
-3. A policy named *\<db_name\>-policy*.
-4. A KMS key named *\<db_name\>-key*
+The module names the group `<db_name>-dynamic-group` and the policy `<db_name>-policy`. Membership covers resource principals in the database compartment. The policy limits access to the specified Vault and TDE key.
 
-## Configuration and Usage
-See [input.auto.tfvars.template](./input.auto.tfvars.template) for resource configuration. 
-See [Module's README.md](../../README.md) for overall attribute usage.
+See the [input template](./input.auto.tfvars.template) and the [module configuration reference](../../SPEC.md).
 
 ## Using this example
-1. Rename *input.auto.tfvars.template* to *\<project-name\>.auto.tfvars*. 
-2. Within *\<project-name\>.auto.tfvars*, provide tenancy connectivity information and adjust the input variables marked with *<REPLACE-WITH-...>*.
 
-   Follow [this guide](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/tutorials/tf-provider.htm#prepare) to gather required information.
+1. Copy `input.auto.tfvars.template` to `input.auto.tfvars` in this directory.
+2. Set the tenancy OCID, region, and authentication values in your copy. Uncomment the corresponding assignments if needed. Replace the resource placeholders with values for your deployment. See [OCI provider authentication](https://docs.oracle.com/en-us/iaas/Content/dev/terraform/tutorials/tf-provider.htm#prepare).
+3. From this directory, generate a plan and compare it with the resources described above.
 
-3. In this folder, run the typical Terraform workflow:
-```
-terraform init
-terraform plan -out plan.out
-terraform apply plan.out
-```
+   ```shell
+   terraform init
+   terraform plan -out=plan.out
+   ```
+
+4. If the proposed actions and target resources are correct, apply the reviewed plan with `terraform apply plan.out`. Restrict access to saved plans and state files, which can contain credentials.

@@ -2,21 +2,21 @@
 # Licensed under the Universal Permissive License v 1.0 as shown at https://oss.oracle.com/licenses/upl.
 
 #--------------------------------------------------------------------------------------------------------------------------------------
-# 1. Rename this file to <project-name>.auto.tfvars, where <project-name> is a name of your choice.
+# 1. Copy this template to input.auto.tfvars.
 # 2. Provide values for "Tenancy Connectivity Variables".
-# 3. Replace <REPLACE-BY-*> placeholders with appropriate values.
+# 3. Replace <REPLACE-WITH-...> placeholders with appropriate values.
 #--------------------------------------------------------------------------------------------------------------------------------------
 
 #---------------------------------------
 # Tenancy Connectivity Variables
 #---------------------------------------
 
-tenancy_ocid         = "<REPLACE-WITH-TENANCY-OCID>" # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "Tenancy: <your tenancy name>").
-user_ocid            = "<REPLACE-WITH-USER-OCID>"    # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "My profile").
-fingerprint          = "<REPLACE-WITH-FINGERPRINT>"   # The fingerprint can be gathered from your user account. In the "My profile page, click "API keys" on the menu in left hand side.
-private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"  # This is the full path on your local system to the API signing private key.
-private_key_password = ""                                  # This is the password that protects the private key, if any.
-region               = "<REPLACE-WITH-REGION>"             # The region name.
+tenancy_ocid         = "<REPLACE-WITH-TENANCY-OCID>"  # OCI tenancy OCID.
+user_ocid            = "<REPLACE-WITH-USER-OCID>"  # OCID of the user who registered the API key.
+fingerprint          = "<REPLACE-WITH-FINGERPRINT>"  # Fingerprint of the registered API key.
+private_key_path     = "<REPLACE-WITH-PRIVATE-KEY-PATH>"  # Local path to the matching API signing private key.
+private_key_password = ""  # Passphrase if the private key is encrypted.
+region               = "<REPLACE-WITH-REGION>"  # OCI region identifier.
 
 #---------------------------------------
 # Input variable
@@ -95,11 +95,11 @@ cloud_vm_clusters_configuration = {
     compartment_id            = "CMP-1"
     display_name              = "My-VMCluster-1"
     exadata_infrastructure_id = "My-Exadata-Infra-1"
-    db_servers                = ["ALL"] # use ["ALL"] for all db servers in created exa infra, or specify db_server ocids
+    db_servers                = ["ALL"] # Select all DB servers in this infrastructure or list individual DB server OCIDs.
 
     # ---- networking----
-    subnet_id              = "EXA-SUBNET-KEY"        ## or "ocid1.subnet.oc1.."
-    backup_subnet_id       = "EXA-BACKUP-SUBNET-KEY" ## or "ocid1.subnet.oc1.."
+    subnet_id              = "EXA-SUBNET-KEY"
+    backup_subnet_id       = "EXA-BACKUP-SUBNET-KEY"
 
     # ---- sizing ----
     memory_size_in_gbs          = 60
@@ -118,12 +118,11 @@ cloud_vm_clusters_configuration = {
     system_version  = "25.1.6.0.0.250622"
     hostname        = "abc"
     cluster_name    = "clust02"
-    ssh_public_keys = ["<REPLEACE-WITH-SSH-PUBLIC-KEY"]
+    ssh_public_keys = ["<REPLACE-WITH-SSH-PUBLIC-KEY>"]
     license_model   = "LICENSE_INCLUDED"
 
     # ---- optional extras ----
-    is_local_backup_enabled = true
-    time_zone               = "UTC"
+    time_zone = "UTC"
 
     # Data Collection options
     data_collection_options = {
@@ -167,28 +166,25 @@ cloud_db_homes_configuration = {
 # ---------------------------------------
 # Database(s) with initial PDB
 # ---------------------------------------
-# The strong admin_password below satisfies the policy defined in variables.tf:
+# The password stored in each referenced Vault secret must satisfy the module password policy:
 # - Length 9-30, at least 2 uppercase, 2 lowercase, 2 digits, 2 special chars from _, #, -
 # - Only allowed characters, and must not contain 'oracle' (or reverse), 'sys', 'system', 'metsys'
 databases_configuration = {
   CDB1 = {
-    #Required
     source = "NONE"
     db_home_id     = "dbhome1"        # References the DB Home defined above (or a DB Home OCID)
     database = {
-      # Required
       admin_password_secret_id = "CDB1-ADMIN-PASSWORD"
       db_name                  = "CDB1"
 
-      #optional
       character_set  = "AL32UTF8"
       db_backup_config = {
         auto_backup_enabled = "true"
-        auto_backup_window = "SLOT_ONE" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
-        auto_full_backup_day = "SUNDAY" #<<If no option is selected, the value is null and we will default to Sunday.>>
-        auto_full_backup_window = "SLOT_TWO" #<<If no option is selected, a start time between 12:00 AM to 7:00 AM in the region of the database is automatically chosen.>>
+        auto_backup_window = "SLOT_ONE"
+        auto_full_backup_day = "SUNDAY"
+        auto_full_backup_window = "SLOT_TWO"
         backup_deletion_policy = "DELETE_AFTER_RETENTION_PERIOD"
-        recovery_window_in_days   = "35" #<<recoveryWindow cannot have value for Backup destination as Database Recovery System.>
+        recovery_window_in_days   = "35"  # Omit when using a Recovery Service protection policy.
         run_immediate_full_backup = "false"
         }
       db_unique_name = "CDB1_vp_fra"
@@ -198,7 +194,7 @@ databases_configuration = {
       ncharacter_set = "AL16UTF16" #The default is AL16UTF16. Allowed values are: AL16UTF16 or UTF8.
 
       # Create initial PDB during CDB creation
-      pdb_name            = "PDB1A" #The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. Pluggable database should not be same as database name.
+      pdb_name            = "PDB1A"
       sid_prefix          = "cdb1"
       tde_wallet_password_secret_id = "CDB1-TDE-WALLET-PASSWORD"
     }
@@ -211,8 +207,8 @@ databases_configuration = {
 # ---------------------------------------
 pluggable_databases_configuration= {
   PDB1B = {
-     container_database_id = "CDB1" #<<Name or OCID>>
-     pdb_name              = "PDB1B" #The name for the pluggable database (PDB). The name is unique in the context of a container database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. The pluggable database name should not be same as the container database name.
+     container_database_id = "CDB1" # CDB configuration key.
+     pdb_name              = "PDB1B"
      pdb_admin_password_secret_id      = "PDB1B-ADMIN-PASSWORD"
 
      defined_tags                      = {}

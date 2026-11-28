@@ -2,12 +2,12 @@
 # Tenancy Connectivity Variables
 #---------------------------------------
 
-tenancy_ocid         = "ocid1.tenancy.xxx" # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "Tenancy: <your tenancy name>").
-user_ocid            = "ocid1.user.xxx"    # Get this from OCI Console (after logging in, go to top-right-most menu item and click option "My profile").
-fingerprint          = ""                                 # The fingerprint can be gathered from your user account. In the "My profile page, click "API keys" on the menu in left hand side.
-private_key_path     = ""                                                                  # This is the full path on your local system to the API signing private key.
-private_key_password = ""                                                                                # This is the password that protects the private key, if any.
-region               = ""
+tenancy_ocid         = "ocid1.tenancy.xxx"  # OCI tenancy OCID.
+user_ocid            = "ocid1.user.xxx"  # OCID of the user who registered the API key.
+fingerprint          = ""  # Fingerprint of the registered API key.
+private_key_path     = ""  # Local path to the matching API signing private key.
+private_key_password = ""  # Passphrase if the private key is encrypted.
+region               = ""  # OCI region identifier.
 
 autonomous_databases_configuration = {
   default_compartment_id ="<REPLACE-WITH-OCID>"
@@ -21,7 +21,7 @@ autonomous_databases_configuration = {
       networking = {
         subnet_id               = "CLIENT-SUBNET"
         enable_private_endpoint = true
-        private_endpoint_ip     = "172.16.0.25"
+        private_endpoint_ip     = "172.16.0.25"  # Choose an unused IP in the client subnet or omit for automatic assignment.
         network_security_groups = ["CLIENT-NSG", "BACKUP-NSG"]
       }
       security = {
